@@ -1,0 +1,2279 @@
+--[[
+PANDA SCRIPT TA - v4.0 FULLY FIXED
+Sag CTRL ile Ac/Kapat
+]]
+
+-- Temizlik
+for _,v in pairs(game:GetService("CoreGui"):GetChildren()) do if v.Name=="PandaTA" then v:Destroy() end end
+pcall(function()
+    for _,v in pairs(game.Players.LocalPlayer.PlayerGui:GetChildren()) do if v.Name=="PandaTA" then v:Destroy() end end
+end)
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local TS = game:GetService("TweenService")
+local SG = game:GetService("StarterGui")
+local RS = game:GetService("ReplicatedStorage")
+local WS = game:GetService("Workspace")
+local Camera = WS.CurrentCamera
+local LP = Players.LocalPlayer
+local Mouse = LP:GetMouse()
+
+local guiOpen = true
+local flyOn = false
+local flySpd = 80
+local aimOn = false
+local aimMode = "Head"
+local hbSize = 15
+local logOn = false
+local paraOn = false
+local gradOff = 0
+local logNum = 0
+local curCat = "Main"
+local gjRunning = false
+local followRunning = false
+
+-- =================== GUI OLUSTUR ===================
+local Gui = Instance.new("ScreenGui")
+Gui.Name = "PandaTA"
+Gui.ResetOnSpawn = false
+Gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+Gui.DisplayOrder = 999
+Gui.IgnoreGuiInset = false
+
+local guiParented = false
+
+pcall(function()
+    if syn and syn.protect_gui then
+        syn.protect_gui(Gui)
+    end
+end)
+
+pcall(function()
+    if gethui then
+        Gui.Parent = gethui()
+        guiParented = true
+    end
+end)
+
+if not guiParented then
+    pcall(function()
+        Gui.Parent = game:GetService("CoreGui")
+        guiParented = true
+    end)
+end
+
+if not guiParented then
+    pcall(function()
+        Gui.Parent = LP:WaitForChild("PlayerGui")
+        guiParented = true
+    end)
+end
+
+if not guiParented then
+    warn("PANDA: GUI PARENT EDILEMEDI!")
+    return
+end
+
+task.wait(0.3)
+
+-- =================== CHAT GONDERME ===================
+local function sendChatMessage(msg)
+    local sent = false
+    pcall(function()
+        local TCS = game:GetService("TextChatService")
+        local channels = TCS:FindFirstChild("TextChannels")
+        if channels then
+            local general = channels:FindFirstChild("RBXGeneral")
+            if general then
+                general:SendAsync(msg)
+                sent = true
+            end
+        end
+    end)
+    if not sent then
+        pcall(function()
+            local chatEvents = RS:FindFirstChild("DefaultChatSystemChatEvents")
+            if chatEvents then
+                local sayMsg = chatEvents:FindFirstChild("SayMessageRequest")
+                if sayMsg then
+                    sayMsg:FireServer(msg, "All")
+                    sent = true
+                end
+            end
+        end)
+    end
+end
+
+-- =================== ANA FRAME ===================
+local Main = Instance.new("Frame")
+Main.Name = "Main"
+Main.Size = UDim2.new(0, 720, 0, 480)
+Main.Position = UDim2.new(0.5, -360, 0.5, -240)
+Main.BackgroundColor3 = Color3.fromRGB(12, 10, 10)
+Main.BorderSizePixel = 0
+Main.Active = true
+Main.Draggable = false
+Main.ClipsDescendants = true
+Main.Visible = true
+Main.ZIndex = 1
+Main.Parent = Gui
+
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 12)
+
+local ms = Instance.new("UIStroke")
+ms.Color = Color3.fromRGB(180, 0, 0)
+ms.Thickness = 2
+ms.Transparency = 0.15
+ms.Parent = Main
+
+-- =================== ARKA PLAN RESMI ===================
+local bgImage = Instance.new("ImageLabel")
+bgImage.Name = "BGImage"
+bgImage.Size = UDim2.new(1, 0, 1, 0)
+bgImage.Position = UDim2.new(0, 0, 0, 0)
+bgImage.BackgroundTransparency = 1
+bgImage.Image = "rbxassetid://124480234990789"
+bgImage.ScaleType = Enum.ScaleType.Crop
+bgImage.ImageTransparency = 0
+bgImage.ZIndex = 1
+bgImage.Parent = Main
+Instance.new("UICorner", bgImage).CornerRadius = UDim.new(0, 12)
+
+-- Karartma overlay (arka planin uzerine hafif karanlik)
+local darkOverlay = Instance.new("Frame")
+darkOverlay.Name = "DarkOverlay"
+darkOverlay.Size = UDim2.new(1, 0, 1, 0)
+darkOverlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+darkOverlay.BackgroundTransparency = 0.45
+darkOverlay.BorderSizePixel = 0
+darkOverlay.ZIndex = 2
+darkOverlay.Parent = Main
+Instance.new("UICorner", darkOverlay).CornerRadius = UDim.new(0, 12)
+
+-- =================== UST BAR ===================
+local TopBar = Instance.new("Frame")
+TopBar.Name = "TopBar"
+TopBar.Size = UDim2.new(1, 0, 0, 50)
+TopBar.Position = UDim2.new(0, 0, 0, 0)
+TopBar.BackgroundColor3 = Color3.fromRGB(8, 6, 6)
+TopBar.BackgroundTransparency = 0.35
+TopBar.BorderSizePixel = 0
+TopBar.ZIndex = 10
+TopBar.Parent = Main
+Instance.new("UICorner", TopBar).CornerRadius = UDim.new(0, 12)
+
+local tbFix = Instance.new("Frame")
+tbFix.Size = UDim2.new(1, 0, 0, 14)
+tbFix.Position = UDim2.new(0, 0, 1, -14)
+tbFix.BackgroundColor3 = Color3.fromRGB(8, 6, 6)
+tbFix.BackgroundTransparency = 0.35
+tbFix.BorderSizePixel = 0
+tbFix.ZIndex = 10
+tbFix.Parent = TopBar
+
+local topLine = Instance.new("Frame")
+topLine.Size = UDim2.new(1, 0, 0, 2)
+topLine.Position = UDim2.new(0, 0, 1, -2)
+topLine.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+topLine.BorderSizePixel = 0
+topLine.ZIndex = 11
+topLine.Parent = TopBar
+
+local tlGrad = Instance.new("UIGradient")
+tlGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 0, 0)),
+    ColorSequenceKeypoint.new(0.3, Color3.fromRGB(200, 0, 0)),
+    ColorSequenceKeypoint.new(0.45, Color3.fromRGB(255, 80, 80)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 200, 200)),
+    ColorSequenceKeypoint.new(0.55, Color3.fromRGB(255, 80, 80)),
+    ColorSequenceKeypoint.new(0.7, Color3.fromRGB(200, 0, 0)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0))
+})
+tlGrad.Parent = topLine
+
+-- Top Logo (Panda resmi)
+local topLogoFrame = Instance.new("Frame")
+topLogoFrame.Size = UDim2.new(0, 38, 0, 38)
+topLogoFrame.Position = UDim2.new(1, -195, 0, 6)
+topLogoFrame.BackgroundColor3 = Color3.fromRGB(15, 8, 8)
+topLogoFrame.BackgroundTransparency = 0.4
+topLogoFrame.BorderSizePixel = 0
+topLogoFrame.ZIndex = 11
+topLogoFrame.Parent = TopBar
+Instance.new("UICorner", topLogoFrame).CornerRadius = UDim.new(0, 8)
+local tlfs2 = Instance.new("UIStroke"); tlfs2.Color = Color3.fromRGB(200,0,0); tlfs2.Thickness = 1.5; tlfs2.Transparency = 0.2; tlfs2.Parent = topLogoFrame
+
+local topLogo = Instance.new("ImageLabel")
+topLogo.Size = UDim2.new(1, -4, 1, -4)
+topLogo.Position = UDim2.new(0, 2, 0, 2)
+topLogo.BackgroundTransparency = 1
+topLogo.Image = "rbxassetid://100322494790492"
+topLogo.ScaleType = Enum.ScaleType.Fit
+topLogo.ZIndex = 12
+topLogo.Parent = topLogoFrame
+
+local titleLbl = Instance.new("TextLabel")
+titleLbl.Size = UDim2.new(0, 140, 0, 22)
+titleLbl.Position = UDim2.new(1, -150, 0, 6)
+titleLbl.BackgroundTransparency = 1
+titleLbl.Text = "🐼 Panda Script"
+titleLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+titleLbl.TextSize = 16
+titleLbl.Font = Enum.Font.GothamBold
+titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+titleLbl.ZIndex = 11
+titleLbl.Parent = TopBar
+
+local tGrad = Instance.new("UIGradient")
+tGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 60, 60)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 220, 220)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 60, 60))
+})
+tGrad.Parent = titleLbl
+
+local subLbl = Instance.new("TextLabel")
+subLbl.Size = UDim2.new(0, 140, 0, 14)
+subLbl.Position = UDim2.new(1, -150, 0, 28)
+subLbl.BackgroundTransparency = 1
+subLbl.Text = "Professional v4.0"
+subLbl.TextColor3 = Color3.fromRGB(140, 60, 60)
+subLbl.TextSize = 10
+subLbl.Font = Enum.Font.Gotham
+subLbl.TextXAlignment = Enum.TextXAlignment.Left
+subLbl.ZIndex = 11
+subLbl.Parent = TopBar
+
+local brand = Instance.new("TextLabel")
+brand.Size = UDim2.new(0, 150, 0, 50)
+brand.Position = UDim2.new(0, 12, 0, 0)
+brand.BackgroundTransparency = 1
+brand.Text = "🐼 PANDA"
+brand.TextColor3 = Color3.fromRGB(220, 30, 30)
+brand.TextSize = 15
+brand.Font = Enum.Font.GothamBold
+brand.TextXAlignment = Enum.TextXAlignment.Left
+brand.ZIndex = 11
+brand.Parent = TopBar
+
+-- Close Button
+local closeBtn = Instance.new("TextButton")
+closeBtn.Size = UDim2.new(0, 28, 0, 28)
+closeBtn.Position = UDim2.new(1, -38, 0, 11)
+closeBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+closeBtn.BackgroundTransparency = 0.7
+closeBtn.BorderSizePixel = 0
+closeBtn.Text = "X"
+closeBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+closeBtn.TextSize = 13
+closeBtn.Font = Enum.Font.GothamBold
+closeBtn.AutoButtonColor = false
+closeBtn.ZIndex = 12
+closeBtn.Parent = TopBar
+Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 7)
+
+closeBtn.MouseButton1Click:Connect(function()
+    guiOpen = false
+    TS:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+        Size = UDim2.new(0, 10, 0, 10),
+        Position = UDim2.new(0.5, -5, 0.5, -5)
+    }):Play()
+    task.wait(0.35)
+    Main.Visible = false
+end)
+
+closeBtn.MouseEnter:Connect(function() TS:Create(closeBtn, TweenInfo.new(0.15), {BackgroundTransparency = 0.3}):Play() end)
+closeBtn.MouseLeave:Connect(function() TS:Create(closeBtn, TweenInfo.new(0.15), {BackgroundTransparency = 0.7}):Play() end)
+
+-- =================== SURUKLEME ===================
+local dragging, dragStart, startPos = false, nil, nil
+TopBar.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = i.Position
+        startPos = Main.Position
+    end
+end)
+TopBar.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end)
+UIS.InputChanged:Connect(function(i)
+    if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+        local d = i.Position - dragStart
+        Main.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + d.X, startPos.Y.Scale, startPos.Y.Offset + d.Y)
+    end
+end)
+
+-- =================== SOL SIDEBAR ===================
+local Sidebar = Instance.new("ScrollingFrame")
+Sidebar.Name = "Sidebar"
+Sidebar.Size = UDim2.new(0, 152, 0, 428)
+Sidebar.Position = UDim2.new(0, 0, 0, 52)
+Sidebar.BackgroundColor3 = Color3.fromRGB(10, 8, 8)
+Sidebar.BackgroundTransparency = 0.4
+Sidebar.BorderSizePixel = 0
+Sidebar.ZIndex = 5
+Sidebar.ScrollBarThickness = 2
+Sidebar.ScrollBarImageColor3 = Color3.fromRGB(200, 0, 0)
+Sidebar.CanvasSize = UDim2.new(0, 0, 0, 560)
+Sidebar.AutomaticCanvasSize = Enum.AutomaticSize.None
+Sidebar.Parent = Main
+
+-- Sidebar cizgi
+local sbLine = Instance.new("Frame")
+sbLine.Size = UDim2.new(0, 1, 0, 428)
+sbLine.Position = UDim2.new(0, 152, 0, 52)
+sbLine.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+sbLine.BackgroundTransparency = 0.55
+sbLine.BorderSizePixel = 0
+sbLine.ZIndex = 6
+sbLine.Parent = Main
+
+-- Side Logo (Panda resmi - buyuk ve gorunur)
+local sideLogoFrame = Instance.new("Frame")
+sideLogoFrame.Size = UDim2.new(0, 100, 0, 100)
+sideLogoFrame.Position = UDim2.new(0.5, -50, 0, 8)
+sideLogoFrame.BackgroundColor3 = Color3.fromRGB(15, 8, 8)
+sideLogoFrame.BackgroundTransparency = 0.4
+sideLogoFrame.BorderSizePixel = 0
+sideLogoFrame.ZIndex = 6
+sideLogoFrame.Parent = Sidebar
+Instance.new("UICorner", sideLogoFrame).CornerRadius = UDim.new(0, 14)
+local slfs = Instance.new("UIStroke"); slfs.Color = Color3.fromRGB(200,0,0); slfs.Thickness = 2; slfs.Transparency = 0.2; slfs.Parent = sideLogoFrame
+
+local sideLogo = Instance.new("ImageLabel")
+sideLogo.Size = UDim2.new(1, -6, 1, -6)
+sideLogo.Position = UDim2.new(0, 3, 0, 3)
+sideLogo.BackgroundTransparency = 1
+sideLogo.Image = "rbxassetid://100322494790492"
+sideLogo.ScaleType = Enum.ScaleType.Fit
+sideLogo.ZIndex = 7
+sideLogo.Parent = sideLogoFrame
+
+local logoTxt = Instance.new("TextLabel")
+logoTxt.Size = UDim2.new(1, 0, 0, 16)
+logoTxt.Position = UDim2.new(0, 0, 0, 112)
+logoTxt.BackgroundTransparency = 1
+logoTxt.Text = "🐼 PANDA SCRIPT"
+logoTxt.TextColor3 = Color3.fromRGB(255, 50, 50)
+logoTxt.TextSize = 10
+logoTxt.Font = Enum.Font.GothamBold
+logoTxt.ZIndex = 6
+logoTxt.Parent = Sidebar
+
+local sep = Instance.new("Frame")
+sep.Size = UDim2.new(0.65, 0, 0, 1)
+sep.Position = UDim2.new(0.175, 0, 0, 132)
+sep.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+sep.BackgroundTransparency = 0.4
+sep.BorderSizePixel = 0
+sep.ZIndex = 6
+sep.Parent = Sidebar
+
+local catLbl = Instance.new("TextLabel")
+catLbl.Size = UDim2.new(1, 0, 0, 14)
+catLbl.Position = UDim2.new(0, 0, 0, 136)
+catLbl.BackgroundTransparency = 1
+catLbl.Text = "KATEGORILER"
+catLbl.TextColor3 = Color3.fromRGB(80, 60, 60)
+catLbl.TextSize = 8
+catLbl.Font = Enum.Font.GothamBold
+catLbl.ZIndex = 6
+catLbl.Parent = Sidebar
+
+-- =================== ICERIK ALANI ===================
+local Content = Instance.new("Frame")
+Content.Name = "Content"
+Content.Size = UDim2.new(0, 566, 0, 428)
+Content.Position = UDim2.new(0, 154, 0, 52)
+Content.BackgroundTransparency = 1
+Content.BorderSizePixel = 0
+Content.ZIndex = 5
+Content.Parent = Main
+
+local Pages = {}
+local catBtns = {}
+
+local function switchCat(name)
+    curCat = name
+    for n, d in pairs(catBtns) do
+        if n == name then
+            d.bar.Visible = true
+            TS:Create(d.btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(30, 6, 6), BackgroundTransparency = 0.3}):Play()
+            TS:Create(d.lbl, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(255, 80, 80)}):Play()
+        else
+            d.bar.Visible = false
+            TS:Create(d.btn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(16, 14, 14), BackgroundTransparency = 0.5}):Play()
+            TS:Create(d.lbl, TweenInfo.new(0.2), {TextColor3 = Color3.fromRGB(150, 140, 140)}):Play()
+        end
+    end
+    for n, p in pairs(Pages) do
+        p.Visible = (n == name)
+    end
+end
+
+local catIndex = 0
+local function makeCatBtn(name, icon)
+    catIndex = catIndex + 1
+    local yPos = 154 + (catIndex - 1) * 40
+
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -14, 0, 32)
+    btn.Position = UDim2.new(0, 7, 0, yPos)
+    btn.BackgroundColor3 = Color3.fromRGB(16, 14, 14)
+    btn.BackgroundTransparency = 0.5
+    btn.BorderSizePixel = 0
+    btn.Text = ""
+    btn.AutoButtonColor = false
+    btn.ZIndex = 7
+    btn.Parent = Sidebar
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 7)
+    local btnStroke = Instance.new("UIStroke"); btnStroke.Color = Color3.fromRGB(35, 8, 8); btnStroke.Thickness = 1; btnStroke.Transparency = 0.4; btnStroke.Parent = btn
+
+    local ic = Instance.new("TextLabel")
+    ic.Size = UDim2.new(0, 22, 1, 0)
+    ic.Position = UDim2.new(0, 6, 0, 0)
+    ic.BackgroundTransparency = 1
+    ic.Text = icon
+    ic.TextColor3 = Color3.fromRGB(200, 0, 0)
+    ic.TextSize = 13
+    ic.Font = Enum.Font.GothamBold
+    ic.ZIndex = 8
+    ic.Parent = btn
+
+    local lb = Instance.new("TextLabel")
+    lb.Size = UDim2.new(1, -32, 1, 0)
+    lb.Position = UDim2.new(0, 28, 0, 0)
+    lb.BackgroundTransparency = 1
+    lb.Text = name
+    lb.TextColor3 = Color3.fromRGB(150, 140, 140)
+    lb.TextSize = 11
+    lb.Font = Enum.Font.GothamSemibold
+    lb.TextXAlignment = Enum.TextXAlignment.Left
+    lb.ZIndex = 8
+    lb.Parent = btn
+
+    local bar = Instance.new("Frame")
+    bar.Size = UDim2.new(0, 3, 0.5, 0)
+    bar.Position = UDim2.new(0, 0, 0.25, 0)
+    bar.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    bar.BorderSizePixel = 0
+    bar.Visible = false
+    bar.ZIndex = 9
+    bar.Parent = btn
+    Instance.new("UICorner", bar).CornerRadius = UDim.new(0, 2)
+
+    catBtns[name] = {btn = btn, bar = bar, lbl = lb}
+
+    btn.MouseButton1Click:Connect(function() switchCat(name) end)
+    btn.MouseEnter:Connect(function()
+        if curCat ~= name then
+            TS:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(24, 10, 10), BackgroundTransparency = 0.35}):Play()
+        end
+    end)
+    btn.MouseLeave:Connect(function()
+        if curCat ~= name then
+            TS:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(16, 14, 14), BackgroundTransparency = 0.5}):Play()
+        end
+    end)
+end
+
+makeCatBtn("Main", "🐼")
+makeCatBtn("Sahte Mesaj", "#")
+makeCatBtn("Log", "=")
+makeCatBtn("Auto Egitim", "+")
+makeCatBtn("Discord", "*")
+
+-- =================== PROFIL KISMI (Sol Alt) ===================
+local profileFrame = Instance.new("Frame")
+profileFrame.Size = UDim2.new(1, -10, 0, 60)
+profileFrame.Position = UDim2.new(0, 5, 0, 490)
+profileFrame.BackgroundColor3 = Color3.fromRGB(12, 8, 8)
+profileFrame.BackgroundTransparency = 0.35
+profileFrame.BorderSizePixel = 0
+profileFrame.ZIndex = 8
+profileFrame.Parent = Sidebar
+Instance.new("UICorner", profileFrame).CornerRadius = UDim.new(0, 8)
+local pfStroke = Instance.new("UIStroke"); pfStroke.Color = Color3.fromRGB(200,0,0); pfStroke.Thickness = 1; pfStroke.Transparency = 0.4; pfStroke.Parent = profileFrame
+
+-- Profil resmi
+local profileImgFrame = Instance.new("Frame")
+profileImgFrame.Size = UDim2.new(0, 42, 0, 42)
+profileImgFrame.Position = UDim2.new(0, 6, 0, 9)
+profileImgFrame.BackgroundColor3 = Color3.fromRGB(20, 15, 15)
+profileImgFrame.BackgroundTransparency = 0.3
+profileImgFrame.BorderSizePixel = 0
+profileImgFrame.ZIndex = 9
+profileImgFrame.Parent = profileFrame
+Instance.new("UICorner", profileImgFrame).CornerRadius = UDim.new(1, 0)
+local pifs = Instance.new("UIStroke"); pifs.Color = Color3.fromRGB(200,0,0); pifs.Thickness = 1.5; pifs.Transparency = 0.3; pifs.Parent = profileImgFrame
+
+local profileImg = Instance.new("ImageLabel")
+profileImg.Size = UDim2.new(1, -4, 1, -4)
+profileImg.Position = UDim2.new(0, 2, 0, 2)
+profileImg.BackgroundTransparency = 1
+profileImg.ZIndex = 10
+profileImg.Parent = profileImgFrame
+Instance.new("UICorner", profileImg).CornerRadius = UDim.new(1, 0)
+
+-- Profil resmini yukle
+pcall(function()
+    local userId = LP.UserId
+    local thumbType = Enum.ThumbnailType.HeadShot
+    local thumbSize = Enum.ThumbnailSize.Size100x100
+    local content, isReady = Players:GetUserThumbnailAsync(userId, thumbType, thumbSize)
+    profileImg.Image = content
+end)
+
+-- Oyuncu ismi
+local profileName = Instance.new("TextLabel")
+profileName.Size = UDim2.new(1, -56, 0, 16)
+profileName.Position = UDim2.new(0, 52, 0, 10)
+profileName.BackgroundTransparency = 1
+profileName.Text = LP.DisplayName
+profileName.TextColor3 = Color3.fromRGB(240, 235, 235)
+profileName.TextSize = 11
+profileName.Font = Enum.Font.GothamBold
+profileName.TextXAlignment = Enum.TextXAlignment.Left
+profileName.TextTruncate = Enum.TextTruncate.AtEnd
+profileName.ZIndex = 10
+profileName.Parent = profileFrame
+
+-- Kullanici adi
+local profileUser = Instance.new("TextLabel")
+profileUser.Size = UDim2.new(1, -56, 0, 14)
+profileUser.Position = UDim2.new(0, 52, 0, 26)
+profileUser.BackgroundTransparency = 1
+profileUser.Text = "@" .. LP.Name
+profileUser.TextColor3 = Color3.fromRGB(120, 110, 110)
+profileUser.TextSize = 9
+profileUser.Font = Enum.Font.Gotham
+profileUser.TextXAlignment = Enum.TextXAlignment.Left
+profileUser.TextTruncate = Enum.TextTruncate.AtEnd
+profileUser.ZIndex = 10
+profileUser.Parent = profileFrame
+
+-- Online durumu
+local onlineDot = Instance.new("Frame")
+onlineDot.Size = UDim2.new(0, 8, 0, 8)
+onlineDot.Position = UDim2.new(0, 52, 0, 44)
+onlineDot.BackgroundColor3 = Color3.fromRGB(0, 200, 80)
+onlineDot.BorderSizePixel = 0
+onlineDot.ZIndex = 10
+onlineDot.Parent = profileFrame
+Instance.new("UICorner", onlineDot).CornerRadius = UDim.new(1, 0)
+
+local onlineLbl = Instance.new("TextLabel")
+onlineLbl.Size = UDim2.new(0, 50, 0, 10)
+onlineLbl.Position = UDim2.new(0, 63, 0, 43)
+onlineLbl.BackgroundTransparency = 1
+onlineLbl.Text = "Online"
+onlineLbl.TextColor3 = Color3.fromRGB(0, 200, 80)
+onlineLbl.TextSize = 8
+onlineLbl.Font = Enum.Font.GothamSemibold
+onlineLbl.TextXAlignment = Enum.TextXAlignment.Left
+onlineLbl.ZIndex = 10
+onlineLbl.Parent = profileFrame
+
+Sidebar.CanvasSize = UDim2.new(0, 0, 0, 560)
+
+-- =================== TOGGLE YAPICI ===================
+local function makeToggle(parent, trTxt, arTxt, yP, cb)
+    local f = Instance.new("Frame")
+    f.Size = UDim2.new(1, -20, 0, 58)
+    f.Position = UDim2.new(0, 10, 0, yP)
+    f.BackgroundColor3 = Color3.fromRGB(14, 12, 12)
+    f.BackgroundTransparency = 0.4
+    f.BorderSizePixel = 0
+    f.ZIndex = 9
+    f.Parent = parent
+    Instance.new("UICorner", f).CornerRadius = UDim.new(0, 8)
+    local fStroke = Instance.new("UIStroke"); fStroke.Color = Color3.fromRGB(30, 8, 8); fStroke.Thickness = 1; fStroke.Transparency = 0.3; fStroke.Parent = f
+
+    local deco = Instance.new("Frame")
+    deco.Size = UDim2.new(0, 3, 0.55, 0)
+    deco.Position = UDim2.new(0, 0, 0.225, 0)
+    deco.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+    deco.BackgroundTransparency = 0.35
+    deco.BorderSizePixel = 0
+    deco.ZIndex = 10
+    deco.Parent = f
+    Instance.new("UICorner", deco).CornerRadius = UDim.new(0, 2)
+
+    local tr = Instance.new("TextLabel")
+    tr.Size = UDim2.new(1, -70, 0, 18)
+    tr.Position = UDim2.new(0, 12, 0, 9)
+    tr.BackgroundTransparency = 1
+    tr.Text = trTxt
+    tr.TextColor3 = Color3.fromRGB(225, 220, 220)
+    tr.TextSize = 12
+    tr.Font = Enum.Font.GothamSemibold
+    tr.TextXAlignment = Enum.TextXAlignment.Left
+    tr.ZIndex = 10
+    tr.Parent = f
+
+    local ar = Instance.new("TextLabel")
+    ar.Size = UDim2.new(1, -70, 0, 14)
+    ar.Position = UDim2.new(0, 12, 0, 32)
+    ar.BackgroundTransparency = 1
+    ar.Text = arTxt
+    ar.TextColor3 = Color3.fromRGB(100, 90, 90)
+    ar.TextSize = 10
+    ar.Font = Enum.Font.Gotham
+    ar.TextXAlignment = Enum.TextXAlignment.Left
+    ar.ZIndex = 10
+    ar.Parent = f
+
+    local tbg = Instance.new("Frame")
+    tbg.Size = UDim2.new(0, 42, 0, 20)
+    tbg.Position = UDim2.new(1, -52, 0.5, -10)
+    tbg.BackgroundColor3 = Color3.fromRGB(32, 30, 30)
+    tbg.BorderSizePixel = 0
+    tbg.ZIndex = 10
+    tbg.Parent = f
+    Instance.new("UICorner", tbg).CornerRadius = UDim.new(1, 0)
+
+    local cir = Instance.new("Frame")
+    cir.Size = UDim2.new(0, 14, 0, 14)
+    cir.Position = UDim2.new(0, 3, 0, 3)
+    cir.BackgroundColor3 = Color3.fromRGB(110, 100, 100)
+    cir.BorderSizePixel = 0
+    cir.ZIndex = 11
+    cir.Parent = tbg
+    Instance.new("UICorner", cir).CornerRadius = UDim.new(1, 0)
+
+    local tb = Instance.new("TextButton")
+    tb.Size = UDim2.new(1, 0, 1, 0)
+    tb.BackgroundTransparency = 1
+    tb.Text = ""
+    tb.ZIndex = 12
+    tb.Parent = tbg
+
+    local en = false
+    tb.MouseButton1Click:Connect(function()
+        en = not en
+        if en then
+            TS:Create(tbg, TweenInfo.new(0.22), {BackgroundColor3 = Color3.fromRGB(200, 0, 0)}):Play()
+            TS:Create(cir, TweenInfo.new(0.22), {Position = UDim2.new(1, -17, 0, 3), BackgroundColor3 = Color3.fromRGB(255, 255, 255)}):Play()
+            TS:Create(fStroke, TweenInfo.new(0.22), {Color = Color3.fromRGB(180, 0, 0)}):Play()
+        else
+            TS:Create(tbg, TweenInfo.new(0.22), {BackgroundColor3 = Color3.fromRGB(32, 30, 30)}):Play()
+            TS:Create(cir, TweenInfo.new(0.22), {Position = UDim2.new(0, 3, 0, 3), BackgroundColor3 = Color3.fromRGB(110, 100, 100)}):Play()
+            TS:Create(fStroke, TweenInfo.new(0.22), {Color = Color3.fromRGB(30, 8, 8)}):Play()
+        end
+        if cb then cb(en) end
+    end)
+
+    f.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseMovement then
+            TS:Create(f, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(20, 14, 14)}):Play()
+        end
+    end)
+    f.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseMovement then
+            TS:Create(f, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(14, 12, 12)}):Play()
+        end
+    end)
+end
+
+-- =================== MAIN SAYFA ===================
+local MP = Instance.new("ScrollingFrame")
+MP.Name = "MainPage"
+MP.Size = UDim2.new(1, 0, 1, 0)
+MP.BackgroundTransparency = 1
+MP.ScrollBarThickness = 3
+MP.ScrollBarImageColor3 = Color3.fromRGB(200, 0, 0)
+MP.CanvasSize = UDim2.new(0, 0, 0, 510)
+MP.AutomaticCanvasSize = Enum.AutomaticSize.None
+MP.BorderSizePixel = 0
+MP.Visible = true
+MP.ZIndex = 6
+MP.Parent = Content
+Pages["Main"] = MP
+
+local mH = Instance.new("TextLabel")
+mH.Size = UDim2.new(1, -20, 0, 26)
+mH.Position = UDim2.new(0, 10, 0, 4)
+mH.BackgroundTransparency = 1
+mH.Text = "🐼 MAIN - Ana Ozellikler"
+mH.TextColor3 = Color3.fromRGB(255, 45, 45)
+mH.TextSize = 13
+mH.Font = Enum.Font.GothamBold
+mH.TextXAlignment = Enum.TextXAlignment.Left
+mH.ZIndex = 10
+mH.Parent = MP
+
+local mLine = Instance.new("Frame")
+mLine.Size = UDim2.new(1, -20, 0, 1)
+mLine.Position = UDim2.new(0, 10, 0, 30)
+mLine.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+mLine.BackgroundTransparency = 0.5
+mLine.BorderSizePixel = 0
+mLine.ZIndex = 10
+mLine.Parent = MP
+
+-- FLY
+makeToggle(MP, "Ucus Modu (Fly)", "Flight Mode", 38, function(s)
+    flyOn = s
+    if s then
+        task.spawn(function()
+            local ch = LP.Character
+            if not ch then return end
+            local hrp = ch:FindFirstChild("HumanoidRootPart")
+            local hum = ch:FindFirstChildOfClass("Humanoid")
+            if not hrp or not hum then return end
+            local bv = Instance.new("BodyVelocity")
+            bv.Name = "LFly"
+            bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+            bv.Velocity = Vector3.new(0, 0, 0)
+            bv.Parent = hrp
+            local bg = Instance.new("BodyGyro")
+            bg.Name = "LGyro"
+            bg.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+            bg.P = 9e4
+            bg.Parent = hrp
+            hum.PlatformStand = true
+            local cn
+            cn = RunService.Heartbeat:Connect(function()
+                if not flyOn then
+                    pcall(function() bv:Destroy() end)
+                    pcall(function() bg:Destroy() end)
+                    pcall(function() hum.PlatformStand = false end)
+                    cn:Disconnect()
+                    return
+                end
+                local d = Vector3.new(0, 0, 0)
+                if UIS:IsKeyDown(Enum.KeyCode.W) then d = d + Camera.CFrame.LookVector end
+                if UIS:IsKeyDown(Enum.KeyCode.S) then d = d - Camera.CFrame.LookVector end
+                if UIS:IsKeyDown(Enum.KeyCode.A) then d = d - Camera.CFrame.RightVector end
+                if UIS:IsKeyDown(Enum.KeyCode.D) then d = d + Camera.CFrame.RightVector end
+                if UIS:IsKeyDown(Enum.KeyCode.Space) then d = d + Vector3.new(0, 1, 0) end
+                if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then d = d - Vector3.new(0, 1, 0) end
+                bv.Velocity = d.Magnitude > 0 and d.Unit * flySpd or Vector3.new(0, 0, 0)
+                bg.CFrame = Camera.CFrame
+            end)
+        end)
+    end
+end)
+
+-- AIMBOT
+makeToggle(MP, "Aimbot (Otomatik Nisan)", "Auto Aim", 104, function(s) aimOn = s end)
+
+-- AIMBOT MOD
+local aimF = Instance.new("Frame")
+aimF.Size = UDim2.new(1, -20, 0, 58)
+aimF.Position = UDim2.new(0, 10, 0, 170)
+aimF.BackgroundColor3 = Color3.fromRGB(14, 12, 12)
+aimF.BackgroundTransparency = 0.4
+aimF.BorderSizePixel = 0
+aimF.ZIndex = 9
+aimF.Parent = MP
+Instance.new("UICorner", aimF).CornerRadius = UDim.new(0, 8)
+local aimStroke = Instance.new("UIStroke"); aimStroke.Color = Color3.fromRGB(30,8,8); aimStroke.Thickness = 1; aimStroke.Transparency = 0.3; aimStroke.Parent = aimF
+
+local adeco = Instance.new("Frame")
+adeco.Size = UDim2.new(0, 3, 0.55, 0)
+adeco.Position = UDim2.new(0, 0, 0.225, 0)
+adeco.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+adeco.BackgroundTransparency = 0.35
+adeco.BorderSizePixel = 0
+adeco.ZIndex = 10
+adeco.Parent = aimF
+Instance.new("UICorner", adeco).CornerRadius = UDim.new(0, 2)
+
+local aTR = Instance.new("TextLabel")
+aTR.Size = UDim2.new(0.5, 0, 0, 18)
+aTR.Position = UDim2.new(0, 12, 0, 9)
+aTR.BackgroundTransparency = 1
+aTR.Text = "Aimbot Modu"
+aTR.TextColor3 = Color3.fromRGB(225, 220, 220)
+aTR.TextSize = 12
+aTR.Font = Enum.Font.GothamSemibold
+aTR.TextXAlignment = Enum.TextXAlignment.Left
+aTR.ZIndex = 10
+aTR.Parent = aimF
+
+local hBtn = Instance.new("TextButton")
+hBtn.Size = UDim2.new(0, 70, 0, 24)
+hBtn.Position = UDim2.new(1, -155, 0.5, -12)
+hBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+hBtn.BorderSizePixel = 0
+hBtn.Text = "HEAD"
+hBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+hBtn.TextSize = 11
+hBtn.Font = Enum.Font.GothamBold
+hBtn.AutoButtonColor = false
+hBtn.ZIndex = 11
+hBtn.Parent = aimF
+Instance.new("UICorner", hBtn).CornerRadius = UDim.new(0, 6)
+
+local htBtn = Instance.new("TextButton")
+htBtn.Size = UDim2.new(0, 70, 0, 24)
+htBtn.Position = UDim2.new(1, -78, 0.5, -12)
+htBtn.BackgroundColor3 = Color3.fromRGB(28, 26, 26)
+htBtn.BorderSizePixel = 0
+htBtn.Text = "HITBOX"
+htBtn.TextColor3 = Color3.fromRGB(140, 130, 130)
+htBtn.TextSize = 11
+htBtn.Font = Enum.Font.GothamBold
+htBtn.AutoButtonColor = false
+htBtn.ZIndex = 11
+htBtn.Parent = aimF
+Instance.new("UICorner", htBtn).CornerRadius = UDim.new(0, 6)
+
+hBtn.MouseButton1Click:Connect(function()
+    aimMode = "Head"
+    TS:Create(hBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(200,0,0), TextColor3 = Color3.fromRGB(255,255,255)}):Play()
+    TS:Create(htBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(28,26,26), TextColor3 = Color3.fromRGB(140,130,130)}):Play()
+end)
+htBtn.MouseButton1Click:Connect(function()
+    aimMode = "Hitbox"
+    TS:Create(htBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(200,0,0), TextColor3 = Color3.fromRGB(255,255,255)}):Play()
+    TS:Create(hBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(28,26,26), TextColor3 = Color3.fromRGB(140,130,130)}):Play()
+end)
+
+-- PARA
+makeToggle(MP, "Para Hilesi (Money)", "Money Hack", 236, function(s)
+    paraOn = s
+    if s then
+        task.spawn(function()
+            while paraOn do
+                pcall(function()
+                    for _, r in pairs(RS:GetDescendants()) do
+                        if r:IsA("RemoteEvent") then
+                            local n = r.Name:lower()
+                            if n:find("money") or n:find("para") or n:find("cash") or n:find("coin") or n:find("reward") then
+                                pcall(function() r:FireServer(99999) end)
+                                pcall(function() r:FireServer("add", 99999) end)
+                            end
+                        end
+                    end
+                end)
+                task.wait(0.5)
+            end
+        end)
+    end
+end)
+
+-- HITBOX BOYUTU
+local hbF = Instance.new("Frame")
+hbF.Size = UDim2.new(1, -20, 0, 58)
+hbF.Position = UDim2.new(0, 10, 0, 302)
+hbF.BackgroundColor3 = Color3.fromRGB(14, 12, 12)
+hbF.BackgroundTransparency = 0.4
+hbF.BorderSizePixel = 0
+hbF.ZIndex = 9
+hbF.Parent = MP
+Instance.new("UICorner", hbF).CornerRadius = UDim.new(0, 8)
+local hbStroke = Instance.new("UIStroke"); hbStroke.Color = Color3.fromRGB(30,8,8); hbStroke.Thickness = 1; hbStroke.Transparency = 0.3; hbStroke.Parent = hbF
+
+local hbTR = Instance.new("TextLabel")
+hbTR.Size = UDim2.new(0, 120, 0, 18)
+hbTR.Position = UDim2.new(0, 12, 0, 9)
+hbTR.BackgroundTransparency = 1
+hbTR.Text = "Hitbox Boyutu"
+hbTR.TextColor3 = Color3.fromRGB(225, 220, 220)
+hbTR.TextSize = 12
+hbTR.Font = Enum.Font.GothamSemibold
+hbTR.TextXAlignment = Enum.TextXAlignment.Left
+hbTR.ZIndex = 10
+hbTR.Parent = hbF
+
+local hbVal = Instance.new("TextLabel")
+hbVal.Size = UDim2.new(0, 30, 0, 18)
+hbVal.Position = UDim2.new(1, -42, 0, 20)
+hbVal.BackgroundTransparency = 1
+hbVal.Text = "15"
+hbVal.TextColor3 = Color3.fromRGB(255, 80, 80)
+hbVal.TextSize = 13
+hbVal.Font = Enum.Font.GothamBold
+hbVal.ZIndex = 10
+hbVal.Parent = hbF
+
+local slBG = Instance.new("Frame")
+slBG.Size = UDim2.new(0, 150, 0, 5)
+slBG.Position = UDim2.new(1, -205, 0, 27)
+slBG.BackgroundColor3 = Color3.fromRGB(30, 28, 28)
+slBG.BorderSizePixel = 0
+slBG.ZIndex = 10
+slBG.Parent = hbF
+Instance.new("UICorner", slBG).CornerRadius = UDim.new(1, 0)
+
+local slFill = Instance.new("Frame")
+slFill.Size = UDim2.new(0.3, 0, 1, 0)
+slFill.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+slFill.BorderSizePixel = 0
+slFill.ZIndex = 11
+slFill.Parent = slBG
+Instance.new("UICorner", slFill).CornerRadius = UDim.new(1, 0)
+
+local slDot = Instance.new("Frame")
+slDot.Size = UDim2.new(0, 12, 0, 12)
+slDot.Position = UDim2.new(0.3, -6, 0.5, -6)
+slDot.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+slDot.BorderSizePixel = 0
+slDot.ZIndex = 12
+slDot.Parent = slBG
+Instance.new("UICorner", slDot).CornerRadius = UDim.new(1, 0)
+
+local slB = Instance.new("TextButton")
+slB.Size = UDim2.new(1, 10, 0, 20)
+slB.Position = UDim2.new(0, -5, 0, -7)
+slB.BackgroundTransparency = 1
+slB.Text = ""
+slB.ZIndex = 13
+slB.Parent = slBG
+
+local sliding = false
+slB.MouseButton1Down:Connect(function() sliding = true end)
+UIS.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then sliding = false end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if sliding then
+        local mx = Mouse.X
+        local absX = slBG.AbsolutePosition.X
+        local absW = slBG.AbsoluteSize.X
+        local pct = math.clamp((mx - absX) / absW, 0, 1)
+        slFill.Size = UDim2.new(pct, 0, 1, 0)
+        slDot.Position = UDim2.new(pct, -6, 0.5, -6)
+        hbSize = math.floor(pct * 50)
+        hbVal.Text = tostring(hbSize)
+    end
+end)
+
+-- UCUS HIZI
+local fsF = Instance.new("Frame")
+fsF.Size = UDim2.new(1, -20, 0, 58)
+fsF.Position = UDim2.new(0, 10, 0, 368)
+fsF.BackgroundColor3 = Color3.fromRGB(14, 12, 12)
+fsF.BackgroundTransparency = 0.4
+fsF.BorderSizePixel = 0
+fsF.ZIndex = 9
+fsF.Parent = MP
+Instance.new("UICorner", fsF).CornerRadius = UDim.new(0, 8)
+
+local fsTR = Instance.new("TextLabel")
+fsTR.Size = UDim2.new(0.5, 0, 0, 18)
+fsTR.Position = UDim2.new(0, 12, 0, 9)
+fsTR.BackgroundTransparency = 1
+fsTR.Text = "Ucus Hizi"
+fsTR.TextColor3 = Color3.fromRGB(225, 220, 220)
+fsTR.TextSize = 12
+fsTR.Font = Enum.Font.GothamSemibold
+fsTR.TextXAlignment = Enum.TextXAlignment.Left
+fsTR.ZIndex = 10
+fsTR.Parent = fsF
+
+local fsIn = Instance.new("TextBox")
+fsIn.Size = UDim2.new(0, 60, 0, 24)
+fsIn.Position = UDim2.new(1, -72, 0.5, -12)
+fsIn.BackgroundColor3 = Color3.fromRGB(22, 8, 8)
+fsIn.BackgroundTransparency = 0.3
+fsIn.BorderSizePixel = 0
+fsIn.Text = "80"
+fsIn.TextColor3 = Color3.fromRGB(255, 80, 80)
+fsIn.TextSize = 12
+fsIn.Font = Enum.Font.GothamBold
+fsIn.ClearTextOnFocus = false
+fsIn.ZIndex = 11
+fsIn.Parent = fsF
+Instance.new("UICorner", fsIn).CornerRadius = UDim.new(0, 6)
+local fsins = Instance.new("UIStroke"); fsins.Color = Color3.fromRGB(200,0,0); fsins.Thickness = 1; fsins.Transparency = 0.4; fsins.Parent = fsIn
+
+fsIn.FocusLost:Connect(function()
+    local v = tonumber(fsIn.Text)
+    if v then
+        flySpd = math.clamp(v, 1, 500)
+        fsIn.Text = tostring(flySpd)
+    else
+        fsIn.Text = tostring(flySpd)
+    end
+end)
+
+-- =================== SAHTE MESAJ SAYFA ===================
+local FP = Instance.new("ScrollingFrame")
+FP.Name = "FakeMsgPage"
+FP.Size = UDim2.new(1, 0, 1, 0)
+FP.BackgroundTransparency = 1
+FP.ScrollBarThickness = 3
+FP.ScrollBarImageColor3 = Color3.fromRGB(200, 0, 0)
+FP.CanvasSize = UDim2.new(0, 0, 0, 300)
+FP.AutomaticCanvasSize = Enum.AutomaticSize.None
+FP.BorderSizePixel = 0
+FP.Visible = false
+FP.ZIndex = 6
+FP.Parent = Content
+Pages["Sahte Mesaj"] = FP
+
+local fH = Instance.new("TextLabel")
+fH.Size = UDim2.new(1, -20, 0, 26)
+fH.Position = UDim2.new(0, 10, 0, 4)
+fH.BackgroundTransparency = 1
+fH.Text = "SAHTE MESAJ - Fake Message"
+fH.TextColor3 = Color3.fromRGB(255, 45, 45)
+fH.TextSize = 13
+fH.Font = Enum.Font.GothamBold
+fH.TextXAlignment = Enum.TextXAlignment.Left
+fH.ZIndex = 10
+fH.Parent = FP
+
+local fLine = Instance.new("Frame")
+fLine.Size = UDim2.new(1, -20, 0, 1)
+fLine.Position = UDim2.new(0, 10, 0, 30)
+fLine.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+fLine.BackgroundTransparency = 0.5
+fLine.BorderSizePixel = 0
+fLine.ZIndex = 10
+fLine.Parent = FP
+
+-- Oyuncu ismi
+local nF = Instance.new("Frame")
+nF.Size = UDim2.new(1, -20, 0, 56)
+nF.Position = UDim2.new(0, 10, 0, 38)
+nF.BackgroundColor3 = Color3.fromRGB(14, 12, 12)
+nF.BackgroundTransparency = 0.4
+nF.BorderSizePixel = 0
+nF.ZIndex = 9
+nF.Parent = FP
+Instance.new("UICorner", nF).CornerRadius = UDim.new(0, 8)
+
+local nLbl = Instance.new("TextLabel")
+nLbl.Size = UDim2.new(1, -10, 0, 18)
+nLbl.Position = UDim2.new(0, 10, 0, 4)
+nLbl.BackgroundTransparency = 1
+nLbl.Text = "Oyuncu Ismi:"
+nLbl.TextColor3 = Color3.fromRGB(170, 160, 160)
+nLbl.TextSize = 10
+nLbl.Font = Enum.Font.GothamSemibold
+nLbl.TextXAlignment = Enum.TextXAlignment.Left
+nLbl.ZIndex = 10
+nLbl.Parent = nF
+
+local nBox = Instance.new("TextBox")
+nBox.Size = UDim2.new(1, -16, 0, 24)
+nBox.Position = UDim2.new(0, 8, 0, 26)
+nBox.BackgroundColor3 = Color3.fromRGB(8, 6, 6)
+nBox.BackgroundTransparency = 0.3
+nBox.BorderSizePixel = 0
+nBox.Text = ""
+nBox.PlaceholderText = "Oyuncu ismini yaz..."
+nBox.PlaceholderColor3 = Color3.fromRGB(55, 50, 50)
+nBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+nBox.TextSize = 11
+nBox.Font = Enum.Font.Gotham
+nBox.ClearTextOnFocus = false
+nBox.ZIndex = 11
+nBox.Parent = nF
+Instance.new("UICorner", nBox).CornerRadius = UDim.new(0, 5)
+
+-- Mesaj icerigi
+local mF2 = Instance.new("Frame")
+mF2.Size = UDim2.new(1, -20, 0, 56)
+mF2.Position = UDim2.new(0, 10, 0, 102)
+mF2.BackgroundColor3 = Color3.fromRGB(14, 12, 12)
+mF2.BackgroundTransparency = 0.4
+mF2.BorderSizePixel = 0
+mF2.ZIndex = 9
+mF2.Parent = FP
+Instance.new("UICorner", mF2).CornerRadius = UDim.new(0, 8)
+
+local mLbl = Instance.new("TextLabel")
+mLbl.Size = UDim2.new(1, -10, 0, 18)
+mLbl.Position = UDim2.new(0, 10, 0, 4)
+mLbl.BackgroundTransparency = 1
+mLbl.Text = "Mesaj Icerigi:"
+mLbl.TextColor3 = Color3.fromRGB(170, 160, 160)
+mLbl.TextSize = 10
+mLbl.Font = Enum.Font.GothamSemibold
+mLbl.TextXAlignment = Enum.TextXAlignment.Left
+mLbl.ZIndex = 10
+mLbl.Parent = mF2
+
+local mBox = Instance.new("TextBox")
+mBox.Size = UDim2.new(1, -16, 0, 24)
+mBox.Position = UDim2.new(0, 8, 0, 26)
+mBox.BackgroundColor3 = Color3.fromRGB(8, 6, 6)
+mBox.BackgroundTransparency = 0.3
+mBox.BorderSizePixel = 0
+mBox.Text = ""
+mBox.PlaceholderText = "Mesaji yaz..."
+mBox.PlaceholderColor3 = Color3.fromRGB(55, 50, 50)
+mBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+mBox.TextSize = 11
+mBox.Font = Enum.Font.Gotham
+mBox.ClearTextOnFocus = false
+mBox.ZIndex = 11
+mBox.Parent = mF2
+Instance.new("UICorner", mBox).CornerRadius = UDim.new(0, 5)
+
+-- Gonder butonu
+local sBtn = Instance.new("TextButton")
+sBtn.Size = UDim2.new(1, -20, 0, 38)
+sBtn.Position = UDim2.new(0, 10, 0, 166)
+sBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+sBtn.BorderSizePixel = 0
+sBtn.Text = "SAHTE MESAJ GONDER"
+sBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+sBtn.TextSize = 12
+sBtn.Font = Enum.Font.GothamBold
+sBtn.AutoButtonColor = false
+sBtn.ZIndex = 10
+sBtn.Parent = FP
+Instance.new("UICorner", sBtn).CornerRadius = UDim.new(0, 8)
+
+sBtn.MouseEnter:Connect(function() TS:Create(sBtn, TweenInfo.new(0.12), {BackgroundColor3 = Color3.fromRGB(220, 15, 15)}):Play() end)
+sBtn.MouseLeave:Connect(function() TS:Create(sBtn, TweenInfo.new(0.12), {BackgroundColor3 = Color3.fromRGB(180, 0, 0)}):Play() end)
+
+sBtn.MouseButton1Click:Connect(function()
+    local pN = nBox.Text
+    local pM = mBox.Text
+    if pN == "" or pM == "" then
+        sBtn.Text = "Bos birakma!"
+        task.wait(1.5)
+        sBtn.Text = "SAHTE MESAJ GONDER"
+        return
+    end
+
+    local targetPlayer = nil
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr.Name:lower() == pN:lower() or plr.DisplayName:lower() == pN:lower() then
+            targetPlayer = plr
+            break
+        end
+        if plr.Name:lower():find(pN:lower()) or plr.DisplayName:lower():find(pN:lower()) then
+            targetPlayer = plr
+        end
+    end
+
+    local displayN = pN
+    if targetPlayer then displayN = targetPlayer.DisplayName end
+
+    sendChatMessage("[" .. displayN .. "]: " .. pM)
+
+    pcall(function()
+        SG:SetCore("ChatMakeSystemMessage", {
+            Text = "[" .. displayN .. "]: " .. pM,
+            Color = Color3.fromRGB(255, 255, 255),
+            Font = Enum.Font.SourceSansBold,
+            TextSize = 18
+        })
+    end)
+
+    pcall(function()
+        if targetPlayer and targetPlayer.Character then
+            game:GetService("Chat"):Chat(targetPlayer.Character, pM)
+        end
+    end)
+
+    sBtn.Text = "Gonderildi!"
+    TS:Create(sBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(0, 150, 0)}):Play()
+    task.wait(1.5)
+    sBtn.Text = "SAHTE MESAJ GONDER"
+    TS:Create(sBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(180, 0, 0)}):Play()
+end)
+
+local tipLbl = Instance.new("TextLabel")
+tipLbl.Size = UDim2.new(1, -20, 0, 40)
+tipLbl.Position = UDim2.new(0, 10, 0, 212)
+tipLbl.BackgroundColor3 = Color3.fromRGB(12, 8, 8)
+tipLbl.BackgroundTransparency = 0.4
+tipLbl.BorderSizePixel = 0
+tipLbl.Text = "Mesaj gercek chat'e gonderilir ve herkes gorur."
+tipLbl.TextColor3 = Color3.fromRGB(110, 100, 100)
+tipLbl.TextSize = 9
+tipLbl.Font = Enum.Font.Gotham
+tipLbl.TextWrapped = true
+tipLbl.TextYAlignment = Enum.TextYAlignment.Top
+tipLbl.ZIndex = 10
+tipLbl.Parent = FP
+Instance.new("UICorner", tipLbl).CornerRadius = UDim.new(0, 6)
+
+-- =================== LOG SAYFA ===================
+local LPg = Instance.new("ScrollingFrame")
+LPg.Name = "LogPage"
+LPg.Size = UDim2.new(1, 0, 1, 0)
+LPg.BackgroundTransparency = 1
+LPg.ScrollBarThickness = 3
+LPg.ScrollBarImageColor3 = Color3.fromRGB(200, 0, 0)
+LPg.CanvasSize = UDim2.new(0, 0, 0, 530)
+LPg.AutomaticCanvasSize = Enum.AutomaticSize.None
+LPg.BorderSizePixel = 0
+LPg.Visible = false
+LPg.ZIndex = 6
+LPg.Parent = Content
+Pages["Log"] = LPg
+
+local lH2 = Instance.new("TextLabel")
+lH2.Size = UDim2.new(1, -20, 0, 26)
+lH2.Position = UDim2.new(0, 10, 0, 4)
+lH2.BackgroundTransparency = 1
+lH2.Text = "LOG - Admin Kayitlari"
+lH2.TextColor3 = Color3.fromRGB(255, 45, 45)
+lH2.TextSize = 13
+lH2.Font = Enum.Font.GothamBold
+lH2.TextXAlignment = Enum.TextXAlignment.Left
+lH2.ZIndex = 10
+lH2.Parent = LPg
+
+local lLine2 = Instance.new("Frame")
+lLine2.Size = UDim2.new(1, -20, 0, 1)
+lLine2.Position = UDim2.new(0, 10, 0, 30)
+lLine2.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+lLine2.BackgroundTransparency = 0.5
+lLine2.BorderSizePixel = 0
+lLine2.ZIndex = 10
+lLine2.Parent = LPg
+
+makeToggle(LPg, "Admin Log Takibi", "Admin Log Tracker", 38, function(s) logOn = s end)
+
+local clrBtn = Instance.new("TextButton")
+clrBtn.Size = UDim2.new(1, -20, 0, 28)
+clrBtn.Position = UDim2.new(0, 10, 0, 104)
+clrBtn.BackgroundColor3 = Color3.fromRGB(28, 8, 8)
+clrBtn.BackgroundTransparency = 0.3
+clrBtn.BorderSizePixel = 0
+clrBtn.Text = "Loglari Temizle"
+clrBtn.TextColor3 = Color3.fromRGB(255, 80, 80)
+clrBtn.TextSize = 11
+clrBtn.Font = Enum.Font.GothamSemibold
+clrBtn.AutoButtonColor = false
+clrBtn.ZIndex = 10
+clrBtn.Parent = LPg
+Instance.new("UICorner", clrBtn).CornerRadius = UDim.new(0, 6)
+
+local logBox = Instance.new("Frame")
+logBox.Size = UDim2.new(1, -20, 0, 380)
+logBox.Position = UDim2.new(0, 10, 0, 140)
+logBox.BackgroundColor3 = Color3.fromRGB(6, 5, 5)
+logBox.BackgroundTransparency = 0.3
+logBox.BorderSizePixel = 0
+logBox.ClipsDescendants = true
+logBox.ZIndex = 9
+logBox.Parent = LPg
+Instance.new("UICorner", logBox).CornerRadius = UDim.new(0, 8)
+
+local logScr = Instance.new("ScrollingFrame")
+logScr.Size = UDim2.new(1, -6, 1, -6)
+logScr.Position = UDim2.new(0, 3, 0, 3)
+logScr.BackgroundTransparency = 1
+logScr.ScrollBarThickness = 2
+logScr.ScrollBarImageColor3 = Color3.fromRGB(200, 0, 0)
+logScr.CanvasSize = UDim2.new(0, 0, 0, 0)
+logScr.AutomaticCanvasSize = Enum.AutomaticSize.Y
+logScr.BorderSizePixel = 0
+logScr.ZIndex = 10
+logScr.Parent = logBox
+
+local logLay = Instance.new("UIListLayout")
+logLay.SortOrder = Enum.SortOrder.LayoutOrder
+logLay.Padding = UDim.new(0, 2)
+logLay.Parent = logScr
+
+local function addLog(typ, who, msg)
+    logNum = logNum + 1
+    local t = os.date("%H:%M:%S")
+    local e = Instance.new("Frame")
+    e.Size = UDim2.new(1, -4, 0, 26)
+    e.BackgroundColor3 = Color3.fromRGB(10, 9, 9)
+    e.BackgroundTransparency = 0.3
+    e.BorderSizePixel = 0
+    e.LayoutOrder = logNum
+    e.ZIndex = 11
+    e.Parent = logScr
+    Instance.new("UICorner", e).CornerRadius = UDim.new(0, 4)
+
+    local cols = {
+        ADMIN = Color3.fromRGB(255, 50, 50),
+        CHAT = Color3.fromRGB(80, 180, 255),
+        CMD = Color3.fromRGB(255, 200, 0),
+        EVENT = Color3.fromRGB(80, 255, 80)
+    }
+
+    local bar = Instance.new("Frame")
+    bar.Size = UDim2.new(0, 2, 0.6, 0)
+    bar.Position = UDim2.new(0, 2, 0.2, 0)
+    bar.BackgroundColor3 = cols[typ] or cols.ADMIN
+    bar.BorderSizePixel = 0
+    bar.ZIndex = 12
+    bar.Parent = e
+
+    local tl = Instance.new("TextLabel")
+    tl.Size = UDim2.new(0, 46, 1, 0)
+    tl.Position = UDim2.new(0, 8, 0, 0)
+    tl.BackgroundTransparency = 1
+    tl.Text = t
+    tl.TextColor3 = Color3.fromRGB(75, 70, 70)
+    tl.TextSize = 9
+    tl.Font = Enum.Font.Code
+    tl.TextXAlignment = Enum.TextXAlignment.Left
+    tl.ZIndex = 12
+    tl.Parent = e
+
+    local tyl = Instance.new("TextLabel")
+    tyl.Size = UDim2.new(0, 44, 1, 0)
+    tyl.Position = UDim2.new(0, 54, 0, 0)
+    tyl.BackgroundTransparency = 1
+    tyl.Text = "[" .. typ .. "]"
+    tyl.TextColor3 = cols[typ] or cols.ADMIN
+    tyl.TextSize = 9
+    tyl.Font = Enum.Font.Code
+    tyl.TextXAlignment = Enum.TextXAlignment.Left
+    tyl.ZIndex = 12
+    tyl.Parent = e
+
+    local cl = Instance.new("TextLabel")
+    cl.Size = UDim2.new(1, -105, 1, 0)
+    cl.Position = UDim2.new(0, 100, 0, 0)
+    cl.BackgroundTransparency = 1
+    cl.Text = who .. ": " .. msg
+    cl.TextColor3 = Color3.fromRGB(170, 160, 160)
+    cl.TextSize = 10
+    cl.Font = Enum.Font.Gotham
+    cl.TextXAlignment = Enum.TextXAlignment.Left
+    cl.TextTruncate = Enum.TextTruncate.AtEnd
+    cl.ZIndex = 12
+    cl.Parent = e
+end
+
+clrBtn.MouseButton1Click:Connect(function()
+    for _, ch in pairs(logScr:GetChildren()) do
+        if ch:IsA("Frame") then ch:Destroy() end
+    end
+    logNum = 0
+end)
+
+-- =================== AUTO EGITIM SAYFA ===================
+local AEP = Instance.new("ScrollingFrame")
+AEP.Name = "AutoEgitimPage"
+AEP.Size = UDim2.new(1, 0, 1, 0)
+AEP.BackgroundTransparency = 1
+AEP.ScrollBarThickness = 3
+AEP.ScrollBarImageColor3 = Color3.fromRGB(200, 0, 0)
+AEP.CanvasSize = UDim2.new(0, 0, 0, 300)
+AEP.AutomaticCanvasSize = Enum.AutomaticSize.None
+AEP.BorderSizePixel = 0
+AEP.Visible = false
+AEP.ZIndex = 6
+AEP.Parent = Content
+Pages["Auto Egitim"] = AEP
+
+local aeH = Instance.new("TextLabel")
+aeH.Size = UDim2.new(1, -20, 0, 26)
+aeH.Position = UDim2.new(0, 10, 0, 4)
+aeH.BackgroundTransparency = 1
+aeH.Text = "AUTO EGITIM - Otomatik Araclar"
+aeH.TextColor3 = Color3.fromRGB(255, 45, 45)
+aeH.TextSize = 13
+aeH.Font = Enum.Font.GothamBold
+aeH.TextXAlignment = Enum.TextXAlignment.Left
+aeH.ZIndex = 10
+aeH.Parent = AEP
+
+local aeLine = Instance.new("Frame")
+aeLine.Size = UDim2.new(1, -20, 0, 1)
+aeLine.Position = UDim2.new(0, 10, 0, 30)
+aeLine.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+aeLine.BackgroundTransparency = 0.5
+aeLine.BorderSizePixel = 0
+aeLine.ZIndex = 10
+aeLine.Parent = AEP
+
+-- GJ Butonu
+local gjBtnMain = Instance.new("TextButton")
+gjBtnMain.Size = UDim2.new(1, -20, 0, 50)
+gjBtnMain.Position = UDim2.new(0, 10, 0, 40)
+gjBtnMain.BackgroundColor3 = Color3.fromRGB(14, 12, 12)
+gjBtnMain.BackgroundTransparency = 0.4
+gjBtnMain.BorderSizePixel = 0
+gjBtnMain.Text = ""
+gjBtnMain.AutoButtonColor = false
+gjBtnMain.ZIndex = 10
+gjBtnMain.Parent = AEP
+Instance.new("UICorner", gjBtnMain).CornerRadius = UDim.new(0, 8)
+local gjbms = Instance.new("UIStroke"); gjbms.Color = Color3.fromRGB(30,8,8); gjbms.Thickness = 1; gjbms.Transparency = 0.3; gjbms.Parent = gjBtnMain
+
+local gjLbl = Instance.new("TextLabel")
+gjLbl.Size = UDim2.new(1, -40, 0, 20)
+gjLbl.Position = UDim2.new(0, 12, 0, 6)
+gjLbl.BackgroundTransparency = 1
+gjLbl.Text = "Otomatik GJ (Sayi Sayma)"
+gjLbl.TextColor3 = Color3.fromRGB(225, 220, 220)
+gjLbl.TextSize = 12
+gjLbl.Font = Enum.Font.GothamSemibold
+gjLbl.TextXAlignment = Enum.TextXAlignment.Left
+gjLbl.ZIndex = 11
+gjLbl.Parent = gjBtnMain
+
+local gjSub = Instance.new("TextLabel")
+gjSub.Size = UDim2.new(1, -40, 0, 14)
+gjSub.Position = UDim2.new(0, 12, 0, 28)
+gjSub.BackgroundTransparency = 1
+gjSub.Text = "Tikla > Ayri pencere acilir"
+gjSub.TextColor3 = Color3.fromRGB(100, 90, 90)
+gjSub.TextSize = 10
+gjSub.Font = Enum.Font.Gotham
+gjSub.TextXAlignment = Enum.TextXAlignment.Left
+gjSub.ZIndex = 11
+gjSub.Parent = gjBtnMain
+
+local gjArrow = Instance.new("TextLabel")
+gjArrow.Size = UDim2.new(0, 20, 1, 0)
+gjArrow.Position = UDim2.new(1, -25, 0, 0)
+gjArrow.BackgroundTransparency = 1
+gjArrow.Text = ">"
+gjArrow.TextColor3 = Color3.fromRGB(200, 0, 0)
+gjArrow.TextSize = 16
+gjArrow.Font = Enum.Font.GothamBold
+gjArrow.ZIndex = 11
+gjArrow.Parent = gjBtnMain
+
+gjBtnMain.MouseEnter:Connect(function() TS:Create(gjBtnMain, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(22, 14, 14)}):Play() end)
+gjBtnMain.MouseLeave:Connect(function() TS:Create(gjBtnMain, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(14, 12, 12)}):Play() end)
+
+-- Auto Takip Butonu
+local atBtnMain = Instance.new("TextButton")
+atBtnMain.Size = UDim2.new(1, -20, 0, 50)
+atBtnMain.Position = UDim2.new(0, 10, 0, 100)
+atBtnMain.BackgroundColor3 = Color3.fromRGB(14, 12, 12)
+atBtnMain.BackgroundTransparency = 0.4
+atBtnMain.BorderSizePixel = 0
+atBtnMain.Text = ""
+atBtnMain.AutoButtonColor = false
+atBtnMain.ZIndex = 10
+atBtnMain.Parent = AEP
+Instance.new("UICorner", atBtnMain).CornerRadius = UDim.new(0, 8)
+local atbms = Instance.new("UIStroke"); atbms.Color = Color3.fromRGB(30,8,8); atbms.Thickness = 1; atbms.Transparency = 0.3; atbms.Parent = atBtnMain
+
+local atLbl = Instance.new("TextLabel")
+atLbl.Size = UDim2.new(1, -40, 0, 20)
+atLbl.Position = UDim2.new(0, 12, 0, 6)
+atLbl.BackgroundTransparency = 1
+atLbl.Text = "Auto Takip Et (Komut Sistemi)"
+atLbl.TextColor3 = Color3.fromRGB(225, 220, 220)
+atLbl.TextSize = 12
+atLbl.Font = Enum.Font.GothamSemibold
+atLbl.TextXAlignment = Enum.TextXAlignment.Left
+atLbl.ZIndex = 11
+atLbl.Parent = atBtnMain
+
+local atSub = Instance.new("TextLabel")
+atSub.Size = UDim2.new(1, -40, 0, 14)
+atSub.Position = UDim2.new(0, 12, 0, 28)
+atSub.BackgroundTransparency = 1
+atSub.Text = "Tikla > Ayri pencere acilir"
+atSub.TextColor3 = Color3.fromRGB(100, 90, 90)
+atSub.TextSize = 10
+atSub.Font = Enum.Font.Gotham
+atSub.TextXAlignment = Enum.TextXAlignment.Left
+atSub.ZIndex = 11
+atSub.Parent = atBtnMain
+
+local atArrow = Instance.new("TextLabel")
+atArrow.Size = UDim2.new(0, 20, 1, 0)
+atArrow.Position = UDim2.new(1, -25, 0, 0)
+atArrow.BackgroundTransparency = 1
+atArrow.Text = ">"
+atArrow.TextColor3 = Color3.fromRGB(200, 0, 0)
+atArrow.TextSize = 16
+atArrow.Font = Enum.Font.GothamBold
+atArrow.ZIndex = 11
+atArrow.Parent = atBtnMain
+
+atBtnMain.MouseEnter:Connect(function() TS:Create(atBtnMain, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(22, 14, 14)}):Play() end)
+atBtnMain.MouseLeave:Connect(function() TS:Create(atBtnMain, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(14, 12, 12)}):Play() end)
+
+-- =================== GJ POPUP ===================
+local gjPopup = Instance.new("Frame")
+gjPopup.Name = "GJPopup"
+gjPopup.Size = UDim2.new(0, 380, 0, 300)
+gjPopup.Position = UDim2.new(0.5, -190, 0.5, -150)
+gjPopup.BackgroundColor3 = Color3.fromRGB(12, 10, 10)
+gjPopup.BorderSizePixel = 0
+gjPopup.Visible = false
+gjPopup.Active = true
+gjPopup.ZIndex = 50
+gjPopup.Parent = Gui
+Instance.new("UICorner", gjPopup).CornerRadius = UDim.new(0, 12)
+local gjps = Instance.new("UIStroke"); gjps.Color = Color3.fromRGB(180,0,0); gjps.Thickness = 2; gjps.Transparency = 0.15; gjps.Parent = gjPopup
+
+local gjTopBar = Instance.new("Frame")
+gjTopBar.Size = UDim2.new(1, 0, 0, 38)
+gjTopBar.BackgroundColor3 = Color3.fromRGB(8, 6, 6)
+gjTopBar.BackgroundTransparency = 0.1
+gjTopBar.BorderSizePixel = 0
+gjTopBar.ZIndex = 51
+gjTopBar.Parent = gjPopup
+Instance.new("UICorner", gjTopBar).CornerRadius = UDim.new(0, 12)
+
+local gjTitle = Instance.new("TextLabel")
+gjTitle.Size = UDim2.new(1, -50, 1, 0)
+gjTitle.Position = UDim2.new(0, 12, 0, 0)
+gjTitle.BackgroundTransparency = 1
+gjTitle.Text = "Otomatik GJ - Sayi Sayma"
+gjTitle.TextColor3 = Color3.fromRGB(255, 60, 60)
+gjTitle.TextSize = 12
+gjTitle.Font = Enum.Font.GothamBold
+gjTitle.TextXAlignment = Enum.TextXAlignment.Left
+gjTitle.ZIndex = 52
+gjTitle.Parent = gjTopBar
+
+local gjCloseBtn = Instance.new("TextButton")
+gjCloseBtn.Size = UDim2.new(0, 26, 0, 26)
+gjCloseBtn.Position = UDim2.new(1, -32, 0, 6)
+gjCloseBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+gjCloseBtn.BackgroundTransparency = 0.7
+gjCloseBtn.BorderSizePixel = 0
+gjCloseBtn.Text = "X"
+gjCloseBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+gjCloseBtn.TextSize = 11
+gjCloseBtn.Font = Enum.Font.GothamBold
+gjCloseBtn.AutoButtonColor = false
+gjCloseBtn.ZIndex = 53
+gjCloseBtn.Parent = gjTopBar
+Instance.new("UICorner", gjCloseBtn).CornerRadius = UDim.new(0, 7)
+
+-- GJ Surukle
+local gjDragging, gjDragStart, gjDragPos = false, nil, nil
+gjTopBar.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+        gjDragging = true; gjDragStart = i.Position; gjDragPos = gjPopup.Position
+    end
+end)
+gjTopBar.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then gjDragging = false end
+end)
+UIS.InputChanged:Connect(function(i)
+    if gjDragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+        local d = i.Position - gjDragStart
+        gjPopup.Position = UDim2.new(gjDragPos.X.Scale, gjDragPos.X.Offset + d.X, gjDragPos.Y.Scale, gjDragPos.Y.Offset + d.Y)
+    end
+end)
+
+local gjNumLbl = Instance.new("TextLabel")
+gjNumLbl.Size = UDim2.new(1, -20, 0, 18)
+gjNumLbl.Position = UDim2.new(0, 10, 0, 46)
+gjNumLbl.BackgroundTransparency = 1
+gjNumLbl.Text = "Kaca kadar sayilsin? (Ornek: 100)"
+gjNumLbl.TextColor3 = Color3.fromRGB(200, 190, 190)
+gjNumLbl.TextSize = 11
+gjNumLbl.Font = Enum.Font.GothamSemibold
+gjNumLbl.TextXAlignment = Enum.TextXAlignment.Left
+gjNumLbl.ZIndex = 52
+gjNumLbl.Parent = gjPopup
+
+local gjNumBox = Instance.new("TextBox")
+gjNumBox.Size = UDim2.new(1, -20, 0, 30)
+gjNumBox.Position = UDim2.new(0, 10, 0, 68)
+gjNumBox.BackgroundColor3 = Color3.fromRGB(8, 6, 6)
+gjNumBox.BorderSizePixel = 0
+gjNumBox.Text = ""
+gjNumBox.PlaceholderText = "Sayi yaz..."
+gjNumBox.PlaceholderColor3 = Color3.fromRGB(55, 50, 50)
+gjNumBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+gjNumBox.TextSize = 13
+gjNumBox.Font = Enum.Font.GothamBold
+gjNumBox.ClearTextOnFocus = false
+gjNumBox.ZIndex = 53
+gjNumBox.Parent = gjPopup
+Instance.new("UICorner", gjNumBox).CornerRadius = UDim.new(0, 6)
+
+local gjStatus = Instance.new("TextLabel")
+gjStatus.Size = UDim2.new(1, -20, 0, 36)
+gjStatus.Position = UDim2.new(0, 10, 0, 106)
+gjStatus.BackgroundTransparency = 1
+gjStatus.Text = "Hazir - Sayi yazip baslat."
+gjStatus.TextColor3 = Color3.fromRGB(150, 140, 140)
+gjStatus.TextSize = 10
+gjStatus.Font = Enum.Font.Gotham
+gjStatus.TextWrapped = true
+gjStatus.TextXAlignment = Enum.TextXAlignment.Left
+gjStatus.ZIndex = 52
+gjStatus.Parent = gjPopup
+
+-- Turkce sayi cevirme
+local turkSayi = {
+    [0]="Sifir",[1]="Bir",[2]="Iki",[3]="Uc",[4]="Dort",
+    [5]="Bes",[6]="Alti",[7]="Yedi",[8]="Sekiz",[9]="Dokuz",
+    [10]="On",[11]="On Bir",[12]="On Iki",[13]="On Uc",[14]="On Dort",
+    [15]="On Bes",[16]="On Alti",[17]="On Yedi",[18]="On Sekiz",[19]="On Dokuz",
+    [20]="Yirmi",[30]="Otuz",[40]="Kirk",[50]="Elli",
+    [60]="Altmis",[70]="Yetmis",[80]="Seksen",[90]="Doksan"
+}
+
+local function sayiyiYaz(n)
+    if n < 0 then return "Eksi " .. sayiyiYaz(-n) end
+    if n <= 19 then return turkSayi[n] or tostring(n) end
+    if n < 100 then
+        local onlar = math.floor(n / 10) * 10
+        local birler = n % 10
+        if birler == 0 then return turkSayi[onlar] end
+        return turkSayi[onlar] .. " " .. turkSayi[birler]
+    end
+    if n < 1000 then
+        local yuzler = math.floor(n / 100)
+        local kalan = n % 100
+        local s = ""
+        if yuzler == 1 then s = "Yuz" else s = turkSayi[yuzler] .. " Yuz" end
+        if kalan > 0 then s = s .. " " .. sayiyiYaz(kalan) end
+        return s
+    end
+    if n < 1000000 then
+        local binler = math.floor(n / 1000)
+        local kalan = n % 1000
+        local s = ""
+        if binler == 1 then s = "Bin" else s = sayiyiYaz(binler) .. " Bin" end
+        if kalan > 0 then s = s .. " " .. sayiyiYaz(kalan) end
+        return s
+    end
+    return tostring(n)
+end
+
+local gjStartBtn = Instance.new("TextButton")
+gjStartBtn.Size = UDim2.new(0.47, 0, 0, 34)
+gjStartBtn.Position = UDim2.new(0.015, 5, 0, 152)
+gjStartBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+gjStartBtn.BorderSizePixel = 0
+gjStartBtn.Text = "BASLAT"
+gjStartBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+gjStartBtn.TextSize = 12
+gjStartBtn.Font = Enum.Font.GothamBold
+gjStartBtn.AutoButtonColor = false
+gjStartBtn.ZIndex = 53
+gjStartBtn.Parent = gjPopup
+Instance.new("UICorner", gjStartBtn).CornerRadius = UDim.new(0, 8)
+
+local gjStopBtn = Instance.new("TextButton")
+gjStopBtn.Size = UDim2.new(0.47, 0, 0, 34)
+gjStopBtn.Position = UDim2.new(0.505, 5, 0, 152)
+gjStopBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+gjStopBtn.BorderSizePixel = 0
+gjStopBtn.Text = "DURDUR"
+gjStopBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+gjStopBtn.TextSize = 12
+gjStopBtn.Font = Enum.Font.GothamBold
+gjStopBtn.AutoButtonColor = false
+gjStopBtn.ZIndex = 53
+gjStopBtn.Parent = gjPopup
+Instance.new("UICorner", gjStopBtn).CornerRadius = UDim.new(0, 8)
+
+local gjTip = Instance.new("TextLabel")
+gjTip.Size = UDim2.new(1, -20, 0, 18)
+gjTip.Position = UDim2.new(0, 10, 0, 196)
+gjTip.BackgroundTransparency = 1
+gjTip.Text = "Mesajlar herkesin chatinde gorunur."
+gjTip.TextColor3 = Color3.fromRGB(100, 90, 90)
+gjTip.TextSize = 9
+gjTip.Font = Enum.Font.Gotham
+gjTip.TextXAlignment = Enum.TextXAlignment.Left
+gjTip.ZIndex = 52
+gjTip.Parent = gjPopup
+
+gjCloseBtn.MouseButton1Click:Connect(function()
+    gjPopup.Visible = false
+end)
+
+gjBtnMain.MouseButton1Click:Connect(function()
+    gjPopup.Visible = true
+    gjPopup.Size = UDim2.new(0, 380, 0, 300)
+    gjPopup.Position = UDim2.new(0.5, -190, 0.5, -150)
+end)
+
+gjStartBtn.MouseButton1Click:Connect(function()
+    if gjRunning then return end
+    local maxNum = tonumber(gjNumBox.Text)
+    if not maxNum or maxNum < 1 then
+        gjStatus.Text = "Gecerli bir sayi yaz!"
+        gjStatus.TextColor3 = Color3.fromRGB(255, 80, 80)
+        return
+    end
+    maxNum = math.floor(math.min(maxNum, 999999))
+    gjRunning = true
+    gjStatus.TextColor3 = Color3.fromRGB(80, 255, 80)
+    gjStartBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+
+    task.spawn(function()
+        for i = 1, maxNum do
+            if not gjRunning then break end
+            local yazili = sayiyiYaz(i) .. "."
+            sendChatMessage(yazili)
+            gjStatus.Text = i .. " / " .. maxNum .. " > " .. yazili
+            task.wait(1.5)
+        end
+        if gjRunning then
+            gjStatus.Text = "Tamamlandi! " .. maxNum .. " sayiya kadar sayildi."
+            gjStatus.TextColor3 = Color3.fromRGB(80, 255, 80)
+        else
+            gjStatus.Text = "Durduruldu."
+            gjStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
+        end
+        gjRunning = false
+        gjStartBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+    end)
+end)
+
+gjStopBtn.MouseButton1Click:Connect(function()
+    gjRunning = false
+    gjStatus.Text = "Durduruldu."
+    gjStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
+    gjStartBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+end)
+
+-- =================== AUTO TAKIP POPUP ===================
+local atPopup = Instance.new("Frame")
+atPopup.Name = "ATPopup"
+atPopup.Size = UDim2.new(0, 400, 0, 360)
+atPopup.Position = UDim2.new(0.5, -200, 0.5, -180)
+atPopup.BackgroundColor3 = Color3.fromRGB(12, 10, 10)
+atPopup.BorderSizePixel = 0
+atPopup.Visible = false
+atPopup.Active = true
+atPopup.ZIndex = 50
+atPopup.Parent = Gui
+Instance.new("UICorner", atPopup).CornerRadius = UDim.new(0, 12)
+local atps = Instance.new("UIStroke"); atps.Color = Color3.fromRGB(180,0,0); atps.Thickness = 2; atps.Transparency = 0.15; atps.Parent = atPopup
+
+local atTopBar = Instance.new("Frame")
+atTopBar.Size = UDim2.new(1, 0, 0, 38)
+atTopBar.BackgroundColor3 = Color3.fromRGB(8, 6, 6)
+atTopBar.BackgroundTransparency = 0.1
+atTopBar.BorderSizePixel = 0
+atTopBar.ZIndex = 51
+atTopBar.Parent = atPopup
+Instance.new("UICorner", atTopBar).CornerRadius = UDim.new(0, 12)
+
+local atTitle = Instance.new("TextLabel")
+atTitle.Size = UDim2.new(1, -50, 1, 0)
+atTitle.Position = UDim2.new(0, 12, 0, 0)
+atTitle.BackgroundTransparency = 1
+atTitle.Text = "Auto Takip Et"
+atTitle.TextColor3 = Color3.fromRGB(255, 60, 60)
+atTitle.TextSize = 12
+atTitle.Font = Enum.Font.GothamBold
+atTitle.TextXAlignment = Enum.TextXAlignment.Left
+atTitle.ZIndex = 52
+atTitle.Parent = atTopBar
+
+local atCloseBtn = Instance.new("TextButton")
+atCloseBtn.Size = UDim2.new(0, 26, 0, 26)
+atCloseBtn.Position = UDim2.new(1, -32, 0, 6)
+atCloseBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+atCloseBtn.BackgroundTransparency = 0.7
+atCloseBtn.BorderSizePixel = 0
+atCloseBtn.Text = "X"
+atCloseBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+atCloseBtn.TextSize = 11
+atCloseBtn.Font = Enum.Font.GothamBold
+atCloseBtn.AutoButtonColor = false
+atCloseBtn.ZIndex = 53
+atCloseBtn.Parent = atTopBar
+Instance.new("UICorner", atCloseBtn).CornerRadius = UDim.new(0, 7)
+
+-- AT Surukle
+local atDragging, atDragStart, atDragPos = false, nil, nil
+atTopBar.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then
+        atDragging = true; atDragStart = i.Position; atDragPos = atPopup.Position
+    end
+end)
+atTopBar.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.MouseButton1 then atDragging = false end
+end)
+UIS.InputChanged:Connect(function(i)
+    if atDragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+        local d = i.Position - atDragStart
+        atPopup.Position = UDim2.new(atDragPos.X.Scale, atDragPos.X.Offset + d.X, atDragPos.Y.Scale, atDragPos.Y.Offset + d.Y)
+    end
+end)
+
+local atNameLbl = Instance.new("TextLabel")
+atNameLbl.Size = UDim2.new(1, -20, 0, 16)
+atNameLbl.Position = UDim2.new(0, 10, 0, 44)
+atNameLbl.BackgroundTransparency = 1
+atNameLbl.Text = "Takip edilecek oyuncu ismi:"
+atNameLbl.TextColor3 = Color3.fromRGB(200, 190, 190)
+atNameLbl.TextSize = 10
+atNameLbl.Font = Enum.Font.GothamSemibold
+atNameLbl.TextXAlignment = Enum.TextXAlignment.Left
+atNameLbl.ZIndex = 52
+atNameLbl.Parent = atPopup
+
+local atNameBox = Instance.new("TextBox")
+atNameBox.Size = UDim2.new(1, -20, 0, 26)
+atNameBox.Position = UDim2.new(0, 10, 0, 62)
+atNameBox.BackgroundColor3 = Color3.fromRGB(8, 6, 6)
+atNameBox.BorderSizePixel = 0
+atNameBox.Text = ""
+atNameBox.PlaceholderText = "Oyuncu ismini yaz..."
+atNameBox.PlaceholderColor3 = Color3.fromRGB(55, 50, 50)
+atNameBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+atNameBox.TextSize = 11
+atNameBox.Font = Enum.Font.GothamBold
+atNameBox.ClearTextOnFocus = false
+atNameBox.ZIndex = 53
+atNameBox.Parent = atPopup
+Instance.new("UICorner", atNameBox).CornerRadius = UDim.new(0, 6)
+
+local atCmdLbl = Instance.new("TextLabel")
+atCmdLbl.Size = UDim2.new(1, -20, 0, 16)
+atCmdLbl.Position = UDim2.new(0, 10, 0, 96)
+atCmdLbl.BackgroundTransparency = 1
+atCmdLbl.Text = "Komut: Sola Don / Saga Don / Ileri / Geri / Dur"
+atCmdLbl.TextColor3 = Color3.fromRGB(200, 190, 190)
+atCmdLbl.TextSize = 9
+atCmdLbl.Font = Enum.Font.GothamSemibold
+atCmdLbl.TextXAlignment = Enum.TextXAlignment.Left
+atCmdLbl.ZIndex = 52
+atCmdLbl.Parent = atPopup
+
+local atCmdBox = Instance.new("TextBox")
+atCmdBox.Size = UDim2.new(1, -20, 0, 26)
+atCmdBox.Position = UDim2.new(0, 10, 0, 114)
+atCmdBox.BackgroundColor3 = Color3.fromRGB(8, 6, 6)
+atCmdBox.BorderSizePixel = 0
+atCmdBox.Text = ""
+atCmdBox.PlaceholderText = "Orn: Sola Don"
+atCmdBox.PlaceholderColor3 = Color3.fromRGB(55, 50, 50)
+atCmdBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+atCmdBox.TextSize = 11
+atCmdBox.Font = Enum.Font.GothamBold
+atCmdBox.ClearTextOnFocus = false
+atCmdBox.ZIndex = 53
+atCmdBox.Parent = atPopup
+Instance.new("UICorner", atCmdBox).CornerRadius = UDim.new(0, 6)
+
+-- Hazir komut butonlari
+local cmdNames = {"Sola Don", "Saga Don", "Ileri", "Geri", "Dur"}
+for idx, cmd in ipairs(cmdNames) do
+    local cb = Instance.new("TextButton")
+    cb.Size = UDim2.new(0, 66, 0, 24)
+    cb.Position = UDim2.new(0, 8 + (idx-1) * 72, 0, 148)
+    cb.BackgroundColor3 = Color3.fromRGB(22, 10, 10)
+    cb.BorderSizePixel = 0
+    cb.Text = cmd
+    cb.TextColor3 = Color3.fromRGB(255, 180, 180)
+    cb.TextSize = 9
+    cb.Font = Enum.Font.GothamSemibold
+    cb.AutoButtonColor = false
+    cb.ZIndex = 53
+    cb.Parent = atPopup
+    Instance.new("UICorner", cb).CornerRadius = UDim.new(0, 6)
+    cb.MouseButton1Click:Connect(function() atCmdBox.Text = cmd end)
+    cb.MouseEnter:Connect(function() TS:Create(cb, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(40, 15, 15)}):Play() end)
+    cb.MouseLeave:Connect(function() TS:Create(cb, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(22, 10, 10)}):Play() end)
+end
+
+local atStatus = Instance.new("TextLabel")
+atStatus.Size = UDim2.new(1, -20, 0, 26)
+atStatus.Position = UDim2.new(0, 10, 0, 180)
+atStatus.BackgroundTransparency = 1
+atStatus.Text = "Hazir"
+atStatus.TextColor3 = Color3.fromRGB(150, 140, 140)
+atStatus.TextSize = 10
+atStatus.Font = Enum.Font.Gotham
+atStatus.TextWrapped = true
+atStatus.TextXAlignment = Enum.TextXAlignment.Left
+atStatus.ZIndex = 52
+atStatus.Parent = atPopup
+
+local atApplyBtn = Instance.new("TextButton")
+atApplyBtn.Size = UDim2.new(1, -20, 0, 34)
+atApplyBtn.Position = UDim2.new(0, 10, 0, 214)
+atApplyBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+atApplyBtn.BorderSizePixel = 0
+atApplyBtn.Text = "KOMUTU UYGULA"
+atApplyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+atApplyBtn.TextSize = 12
+atApplyBtn.Font = Enum.Font.GothamBold
+atApplyBtn.AutoButtonColor = false
+atApplyBtn.ZIndex = 53
+atApplyBtn.Parent = atPopup
+Instance.new("UICorner", atApplyBtn).CornerRadius = UDim.new(0, 8)
+
+local atStopBtn = Instance.new("TextButton")
+atStopBtn.Size = UDim2.new(1, -20, 0, 30)
+atStopBtn.Position = UDim2.new(0, 10, 0, 256)
+atStopBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+atStopBtn.BorderSizePixel = 0
+atStopBtn.Text = "DURDUR"
+atStopBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+atStopBtn.TextSize = 11
+atStopBtn.Font = Enum.Font.GothamBold
+atStopBtn.AutoButtonColor = false
+atStopBtn.ZIndex = 53
+atStopBtn.Parent = atPopup
+Instance.new("UICorner", atStopBtn).CornerRadius = UDim.new(0, 8)
+
+atCloseBtn.MouseButton1Click:Connect(function()
+    followRunning = false
+    atPopup.Visible = false
+end)
+
+atBtnMain.MouseButton1Click:Connect(function()
+    atPopup.Visible = true
+    atPopup.Size = UDim2.new(0, 400, 0, 360)
+    atPopup.Position = UDim2.new(0.5, -200, 0.5, -180)
+end)
+
+atApplyBtn.MouseButton1Click:Connect(function()
+    local targetName = atNameBox.Text
+    local cmd = atCmdBox.Text:lower()
+    if targetName == "" then
+        atStatus.Text = "Oyuncu ismi yaz!"
+        atStatus.TextColor3 = Color3.fromRGB(255, 80, 80)
+        return
+    end
+    if cmd == "" then
+        atStatus.Text = "Komut yaz!"
+        atStatus.TextColor3 = Color3.fromRGB(255, 80, 80)
+        return
+    end
+
+    local targetPlayer = nil
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr.Name:lower() == targetName:lower() or plr.DisplayName:lower() == targetName:lower() then
+            targetPlayer = plr
+            break
+        end
+        if plr.Name:lower():find(targetName:lower()) or plr.DisplayName:lower():find(targetName:lower()) then
+            targetPlayer = plr
+        end
+    end
+
+    if not targetPlayer then
+        atStatus.Text = "Oyuncu bulunamadi!"
+        atStatus.TextColor3 = Color3.fromRGB(255, 80, 80)
+        return
+    end
+    if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        atStatus.Text = "Karakter yok!"
+        atStatus.TextColor3 = Color3.fromRGB(255, 80, 80)
+        return
+    end
+
+    local ch = LP.Character
+    if not ch or not ch:FindFirstChild("HumanoidRootPart") or not ch:FindFirstChildOfClass("Humanoid") then
+        atStatus.Text = "Senin karakterin yok!"
+        atStatus.TextColor3 = Color3.fromRGB(255, 80, 80)
+        return
+    end
+
+    local myHum = ch:FindFirstChildOfClass("Humanoid")
+    followRunning = true
+    atStatus.Text = "Uygulaniyor..."
+    atStatus.TextColor3 = Color3.fromRGB(80, 255, 80)
+    atApplyBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+
+    task.spawn(function()
+        if cmd:find("sola") then
+            while followRunning do
+                if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then break end
+                if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then break end
+                local tPos = targetPlayer.Character.HumanoidRootPart.Position
+                local mPos = LP.Character.HumanoidRootPart.Position
+                local dir = (mPos - tPos).Unit
+                local angle = math.atan2(dir.X, dir.Z) - 0.15
+                local newPos = tPos + Vector3.new(math.sin(angle) * 8, 0, math.cos(angle) * 8)
+                LP.Character.HumanoidRootPart.CFrame = CFrame.new(newPos, tPos)
+                atStatus.Text = "Sola Donuluyor..."
+                task.wait(0.05)
+            end
+        elseif cmd:find("sag") then
+            while followRunning do
+                if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then break end
+                if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then break end
+                local tPos = targetPlayer.Character.HumanoidRootPart.Position
+                local mPos = LP.Character.HumanoidRootPart.Position
+                local dir = (mPos - tPos).Unit
+                local angle = math.atan2(dir.X, dir.Z) + 0.15
+                local newPos = tPos + Vector3.new(math.sin(angle) * 8, 0, math.cos(angle) * 8)
+                LP.Character.HumanoidRootPart.CFrame = CFrame.new(newPos, tPos)
+                atStatus.Text = "Saga Donuluyor..."
+                task.wait(0.05)
+            end
+        elseif cmd:find("ileri") then
+            while followRunning do
+                if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then break end
+                if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then break end
+                myHum:MoveTo(targetPlayer.Character.HumanoidRootPart.Position)
+                atStatus.Text = "Ileri gidiliyor..."
+                task.wait(0.1)
+            end
+        elseif cmd:find("geri") then
+            while followRunning do
+                if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then break end
+                if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then break end
+                local tPos = targetPlayer.Character.HumanoidRootPart.Position
+                local mPos = LP.Character.HumanoidRootPart.Position
+                local dir = (mPos - tPos).Unit
+                myHum:MoveTo(mPos + dir * 5)
+                atStatus.Text = "Geri gidiliyor..."
+                task.wait(0.1)
+            end
+        elseif cmd:find("dur") then
+            followRunning = false
+        else
+            atStatus.Text = "Bilinmeyen komut!"
+            atStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
+        end
+        followRunning = false
+        atStatus.Text = "Tamamlandi."
+        atStatus.TextColor3 = Color3.fromRGB(150, 140, 140)
+        atApplyBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+    end)
+end)
+
+atStopBtn.MouseButton1Click:Connect(function()
+    followRunning = false
+    atStatus.Text = "Durduruldu."
+    atStatus.TextColor3 = Color3.fromRGB(255, 200, 0)
+    atApplyBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
+end)
+
+-- =================== DISCORD SAYFA ===================
+local DP = Instance.new("Frame")
+DP.Name = "DiscordPage"
+DP.Size = UDim2.new(1, 0, 1, 0)
+DP.BackgroundTransparency = 1
+DP.BorderSizePixel = 0
+DP.Visible = false
+DP.ZIndex = 6
+DP.Parent = Content
+Pages["Discord"] = DP
+
+local dH = Instance.new("TextLabel")
+dH.Size = UDim2.new(1, -20, 0, 26)
+dH.Position = UDim2.new(0, 10, 0, 4)
+dH.BackgroundTransparency = 1
+dH.Text = "DISCORD - Topluluga Katil!"
+dH.TextColor3 = Color3.fromRGB(255, 45, 45)
+dH.TextSize = 13
+dH.Font = Enum.Font.GothamBold
+dH.TextXAlignment = Enum.TextXAlignment.Left
+dH.ZIndex = 10
+dH.Parent = DP
+
+local dLine = Instance.new("Frame")
+dLine.Size = UDim2.new(1, -20, 0, 1)
+dLine.Position = UDim2.new(0, 10, 0, 30)
+dLine.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+dLine.BackgroundTransparency = 0.5
+dLine.BorderSizePixel = 0
+dLine.ZIndex = 10
+dLine.Parent = DP
+
+-- Logo
+local dLogoFrame = Instance.new("Frame")
+dLogoFrame.Size = UDim2.new(0, 110, 0, 110)
+dLogoFrame.Position = UDim2.new(0.5, -55, 0, 50)
+dLogoFrame.BackgroundColor3 = Color3.fromRGB(15, 8, 8)
+dLogoFrame.BackgroundTransparency = 0.5
+dLogoFrame.BorderSizePixel = 0
+dLogoFrame.ZIndex = 10
+dLogoFrame.Parent = DP
+Instance.new("UICorner", dLogoFrame).CornerRadius = UDim.new(0, 16)
+local dlfs = Instance.new("UIStroke"); dlfs.Color = Color3.fromRGB(200,0,0); dlfs.Thickness = 2; dlfs.Transparency = 0.2; dlfs.Parent = dLogoFrame
+
+local dLogoImg = Instance.new("ImageLabel")
+dLogoImg.Size = UDim2.new(1, -10, 1, -10)
+dLogoImg.Position = UDim2.new(0, 5, 0, 5)
+dLogoImg.BackgroundTransparency = 1
+dLogoImg.Image = "rbxassetid://126189987364412"
+dLogoImg.ScaleType = Enum.ScaleType.Fit
+dLogoImg.ZIndex = 11
+dLogoImg.Parent = dLogoFrame
+
+local dInfoLbl = Instance.new("TextLabel")
+dInfoLbl.Size = UDim2.new(1, -40, 0, 60)
+dInfoLbl.Position = UDim2.new(0, 20, 0, 175)
+dInfoLbl.BackgroundTransparency = 1
+dInfoLbl.Text = "PANDA SCRIPT TA\nDiscord sunucumuza katilarak\nyeni guncellemelerden haberdar olun!"
+dInfoLbl.TextColor3 = Color3.fromRGB(200, 190, 190)
+dInfoLbl.TextSize = 11
+dInfoLbl.Font = Enum.Font.Gotham
+dInfoLbl.TextWrapped = true
+dInfoLbl.ZIndex = 10
+dInfoLbl.Parent = DP
+
+local dLinkFrame = Instance.new("Frame")
+dLinkFrame.Size = UDim2.new(1, -40, 0, 44)
+dLinkFrame.Position = UDim2.new(0, 20, 0, 250)
+dLinkFrame.BackgroundColor3 = Color3.fromRGB(14, 12, 12)
+dLinkFrame.BackgroundTransparency = 0.4
+dLinkFrame.BorderSizePixel = 0
+dLinkFrame.ZIndex = 10
+dLinkFrame.Parent = DP
+Instance.new("UICorner", dLinkFrame).CornerRadius = UDim.new(0, 8)
+local dlfStroke = Instance.new("UIStroke"); dlfStroke.Color = Color3.fromRGB(88, 101, 242); dlfStroke.Thickness = 1; dlfStroke.Transparency = 0.3; dlfStroke.Parent = dLinkFrame
+
+local dLinkLbl = Instance.new("TextLabel")
+dLinkLbl.Size = UDim2.new(1, -10, 1, 0)
+dLinkLbl.Position = UDim2.new(0, 5, 0, 0)
+dLinkLbl.BackgroundTransparency = 1
+dLinkLbl.Text = "discord.gg/lwoxy"
+dLinkLbl.TextColor3 = Color3.fromRGB(88, 101, 242)
+dLinkLbl.TextSize = 14
+dLinkLbl.Font = Enum.Font.GothamBold
+dLinkLbl.ZIndex = 11
+dLinkLbl.Parent = dLinkFrame
+
+local dCopyBtn = Instance.new("TextButton")
+dCopyBtn.Size = UDim2.new(1, -40, 0, 36)
+dCopyBtn.Position = UDim2.new(0, 20, 0, 308)
+dCopyBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+dCopyBtn.BorderSizePixel = 0
+dCopyBtn.Text = "LINKI KOPYALA"
+dCopyBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+dCopyBtn.TextSize = 12
+dCopyBtn.Font = Enum.Font.GothamBold
+dCopyBtn.AutoButtonColor = false
+dCopyBtn.ZIndex = 10
+dCopyBtn.Parent = DP
+Instance.new("UICorner", dCopyBtn).CornerRadius = UDim.new(0, 8)
+
+dCopyBtn.MouseButton1Click:Connect(function()
+    pcall(function()
+        if setclipboard then
+            setclipboard("https://discord.gg/lwoxy")
+        elseif toclipboard then
+            toclipboard("https://discord.gg/lwoxy")
+        end
+    end)
+    dCopyBtn.Text = "Kopyalandi!"
+    TS:Create(dCopyBtn, TweenInfo.new(0.1), {BackgroundColor3 = Color3.fromRGB(0, 150, 0)}):Play()
+    task.wait(1.5)
+    dCopyBtn.Text = "LINKI KOPYALA"
+    TS:Create(dCopyBtn, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(88, 101, 242)}):Play()
+end)
+
+dCopyBtn.MouseEnter:Connect(function() TS:Create(dCopyBtn, TweenInfo.new(0.12), {BackgroundColor3 = Color3.fromRGB(108, 121, 255)}):Play() end)
+dCopyBtn.MouseLeave:Connect(function() TS:Create(dCopyBtn, TweenInfo.new(0.12), {BackgroundColor3 = Color3.fromRGB(88, 101, 242)}):Play() end)
+
+-- =================== VARSAYILAN KATEGORI ===================
+switchCat("Main")
+
+-- =================== AIMBOT LOOP ===================
+RunService.RenderStepped:Connect(function()
+    if not aimOn then return end
+    local ch = LP.Character
+    if not ch then return end
+    local hrp = ch:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    local closest, dist = nil, math.huge
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LP and plr.Character then
+            local head = plr.Character:FindFirstChild("Head")
+            local phrp = plr.Character:FindFirstChild("HumanoidRootPart")
+            local hum = plr.Character:FindFirstChildOfClass("Humanoid")
+            if head and phrp and hum and hum.Health > 0 then
+                local d = (hrp.Position - phrp.Position).Magnitude
+                if d < dist then
+                    dist = d
+                    closest = plr
+                end
+            end
+        end
+    end
+
+    if closest and closest.Character then
+        if aimMode == "Head" then
+            local head = closest.Character:FindFirstChild("Head")
+            if head then
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position)
+            end
+        else
+            local phrp = closest.Character:FindFirstChild("HumanoidRootPart")
+            if phrp then
+                phrp.Size = Vector3.new(hbSize, hbSize, hbSize)
+                phrp.Transparency = 0.7
+                phrp.BrickColor = BrickColor.new("Really red")
+                phrp.CanCollide = false
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, phrp.Position)
+            end
+        end
+    end
+end)
+
+-- =================== LOG DINLEYICI ===================
+Players.PlayerAdded:Connect(function(plr)
+    if logOn then addLog("EVENT", plr.Name, "Oyuna katildi") end
+end)
+Players.PlayerRemoving:Connect(function(plr)
+    if logOn then addLog("EVENT", plr.Name, "Oyundan ayrildi") end
+end)
+
+pcall(function()
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= LP then
+            pcall(function()
+                plr.Chatted:Connect(function(msg)
+                    if logOn then
+                        local isCmd = msg:sub(1,1) == ":" or msg:sub(1,1) == ";" or msg:sub(1,1) == "/"
+                        if isCmd then
+                            addLog("CMD", plr.Name, msg)
+                        else
+                            addLog("CHAT", plr.Name, msg)
+                        end
+                    end
+                end)
+            end)
+        end
+    end
+end)
+
+Players.PlayerAdded:Connect(function(plr)
+    pcall(function()
+        plr.Chatted:Connect(function(msg)
+            if logOn then
+                local isCmd = msg:sub(1,1) == ":" or msg:sub(1,1) == ";" or msg:sub(1,1) == "/"
+                if isCmd then
+                    addLog("CMD", plr.Name, msg)
+                else
+                    addLog("CHAT", plr.Name, msg)
+                end
+            end
+        end)
+    end)
+end)
+
+-- =================== CTRL TOGGLE ===================
+UIS.InputBegan:Connect(function(i, gpe)
+    if gpe then return end
+    if i.KeyCode == Enum.KeyCode.RightControl or i.KeyCode == Enum.KeyCode.LeftControl then
+        guiOpen = not guiOpen
+        if guiOpen then
+            Main.Visible = true
+            Main.Size = UDim2.new(0, 10, 0, 10)
+            Main.Position = UDim2.new(0.5, -5, 0.5, -5)
+            TS:Create(Main, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+                Size = UDim2.new(0, 720, 0, 480),
+                Position = UDim2.new(0.5, -360, 0.5, -240)
+            }):Play()
+        else
+            TS:Create(Main, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+                Size = UDim2.new(0, 10, 0, 10),
+                Position = UDim2.new(0.5, -5, 0.5, -5)
+            }):Play()
+            task.wait(0.35)
+            Main.Visible = false
+        end
+    end
+end)
+
+-- =================== ACILIS ANIMASYONU ===================
+Main.Size = UDim2.new(0, 10, 0, 10)
+Main.Position = UDim2.new(0.5, -5, 0.5, -5)
+task.wait(0.1)
+TS:Create(Main, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+    Size = UDim2.new(0, 720, 0, 480),
+    Position = UDim2.new(0.5, -360, 0.5, -240)
+}):Play()
+
+print("[PANDA] Script TA v4.0 - Basariyla yuklendi!")
+print("[PANDA] CTRL ile ac/kapat")
